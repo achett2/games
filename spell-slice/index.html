@@ -180,7 +180,7 @@
    nouns/verbs) + Unit 1 (VC/CV, inflected endings, base words, vowel
    digraphs, diphthongs). Mastery per skill lives in localStorage.
    ===================================================================== */
-const BUILD = "v3";
+const BUILD = "v4";
 const $ = id => document.getElementById(id);
 const rnd = n => Math.floor(Math.random()*n);
 const pick = a => a[rnd(a.length)];
@@ -392,7 +392,7 @@ const SKILLS = {
 };
 const TOPICS = [
   {id:"vc", unit:"F", icon:"🔤", name:"Vowels & Consonants", stages:["v_letter","c_letter","v_word","c_word","vc_code","vc_pattern"], warm:[], chains:["vcw"]},
-  {id:"nv", unit:"F", icon:"🏃", name:"Nouns & Verbs", stages:["n_list","v_list","n_sent","v_sent","nv_tricky"], warm:["v_letter","c_letter","v_word","vc_code"], chains:["nvs"]},
+  {id:"nv", unit:"F", icon:"🏃", name:"Nouns & Verbs", stages:["n_list","v_list","n_sent","v_sent","nv_tricky"], warm:[], chains:["nvs"]},
   {id:"w1", unit:"U", wk:1, icon:"✂️", name:"VC/CV Syllables", stages:["vccv_split","vccv_find"], warm:["v_word","c_word","vc_code","vc_pattern"], chains:["vccv"]},
   {id:"w2", unit:"U", wk:2, icon:"➕", name:"Inflected Endings", stages:["infl_add","infl_s_es","infl_rule"], warm:["v_sent","n_list","v_list","vc_pattern"], chains:["dbl"]},
   {id:"w3", unit:"U", wk:3, icon:"🪓", name:"Base Words + Endings", stages:["base_chop","end_pick","base_pick"], warm:["v_sent","n_sent","nv_tricky","infl_add"], chains:["base","why"]},
@@ -763,7 +763,7 @@ function availableSkillsForMix(){
 function startRound(mode, topicId){
   const t = TOPIC[topicId];
   R = {mode, topicId, total: mode === "mix" ? 14 : 12, done:0, first:0, queue:[], log:{}, score:0, combo:0, best:0,
-       warmLeft: mode === "topic" ? (t.unit === "U" ? 2 : (t.warm.length ? 1 : 0)) : 0, newStage:null, chainsDone:0, pending:null};
+       warmLeft: mode === "topic" ? (t.unit === "U" ? 2 : 0) : 0, newStage:null, chainsDone:0, pending:null};
   R.stageAtStart = mode === "topic" ? tp(topicId).stage : 0;
   hideScreens(); $("hud").classList.remove("hidden");
   nextQuestion();
@@ -1217,9 +1217,10 @@ requestAnimationFrame(loop);
 /* =====================================================================
    HUD
    ===================================================================== */
+function skillTopicName(id){ const t = TOPICS.find(x => x.stages.includes(id)); return t ? `${t.icon} ${t.name}` : SKILLS[id].name; }
 function renderHud(entry){
   const q = entry.q;
-  const tag = entry.tag === "warm" ? `<span class="warm">🔥 WARM-UP · ${SKILLS[q.skill].name}</span>`
+  const tag = entry.tag === "warm" ? `<span class="warm">🔥 WARM-UP REVIEW · ${skillTopicName(q.skill)}</span>`
             : entry.tag === "chain" ? `<span class="chain">🔗 ${esc(entry.chain)} · STEP ${entry.step} OF ${entry.of}</span>`
             : entry.tag === "mix" ? `🎲 MIXED REVIEW · ${SKILLS[q.skill].name}` : SKILLS[q.skill].name.toUpperCase();
   $("tag").innerHTML = tag;
@@ -1345,6 +1346,7 @@ const LESSONS = {
 function showLesson(id){
   const t = TOPIC[id]; S.tips["learn_"+id] = 1; save();
   openModal(`<div class="lesson"><h2>${t.icon} ${t.name}</h2>${LESSONS[id]}
+    ${t.unit === "U" ? `<p class="how">🔥 Each round starts with 2 quick <b>warm-up review</b> questions from earlier topics.</p>` : ""}
     <p class="how">🎮 Swipe through the right answers (or tap them). Wrong slices break your combo. Missed answers float back up — take your time and think!</p>
     <button class="play big" id="lessonGo">LET'S SLICE!</button><div class="row"><button class="ghost" id="lessonBack">Back</button></div></div>`);
   $("lessonGo").onclick = () => startRound("topic", id);

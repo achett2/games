@@ -14,7 +14,7 @@ letters to split it (syllables, base | ending, vowel teams).
 ### Architecture
 - **Everything is in `spell-slice/index.html`** — HTML, CSS, and JS inline. No build step, no framework, no JS deps (Google Fonts only).
 - Sections in the script, in order: utils → CONTENT (word lists) → SKILLS/TOPICS → STATE → QUESTION GENERATORS → CHAINS → ROUND PLANNING → AUDIO/SPEECH → ENGINE (canvas) → HUD → SCREENS → SELF-TEST.
-- **Curriculum = `TOPICS`**: Foundations (`vc` Vowels & Consonants, `nv` Nouns & Verbs), then Unit 1 weeks `w1`–`w5`. Each topic has ordered `stages` (skill ids), `warm` (foundation skills recycled as warm-ups) and `chains`.
+- **Curriculum = `TOPICS`**: Foundations (`vc` Vowels & Consonants, `nv` Nouns & Verbs), then Unit 1 weeks `w1`–`w5`. Each topic has ordered `stages` (skill ids), `warm` (foundation skills recycled as 2 warm-up review questions at the start of Unit 1 rounds; Foundation topics have none) and `chains`.
 - **Skills** (`SKILLS`) each have a generator in `GEN`. A question is either
   `{kind:"slice", items:[{label,target,why}], ...}` or `{kind:"chop", word, cuts:[gap indexes], ...}`.
   Every wrong option carries a `why` string, which is shown when it's sliced. `q.why` is the explanation shown on completion.

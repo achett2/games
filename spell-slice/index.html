@@ -180,7 +180,7 @@
    nouns/verbs) + Unit 1 (VC/CV, inflected endings, base words, vowel
    digraphs, diphthongs). Mastery per skill lives in localStorage.
    ===================================================================== */
-const BUILD = "v2";
+const BUILD = "v3";
 const $ = id => document.getElementById(id);
 const rnd = n => Math.floor(Math.random()*n);
 const pick = a => a[rnd(a.length)];
@@ -852,7 +852,7 @@ const cv = $("cv"), ctx = cv.getContext("2d");
 let W = 0, H = 0, DPR = 1;
 const G = {q:null, items:[], bits:[], parts:[], splats:[], floats:[], trail:[], chop:null, phase:"idle", mistakes:0, shake:0, t:0, doneAt:0};
 const FRUIT = [["#ff4d6d","#a3123a"],["#ff9f1c","#b35c00"],["#7ed957","#2f7d1a"],["#b264ff","#5b1fa3"],["#ffd23f","#b38600"],["#3fc5ff","#0b6c9e"],["#ff7ab6","#a8155e"]];
-const PACE = {chill:7.2, normal:5.6, quick:4.2};
+const PACE = {chill:4.6, normal:3.8, quick:3.0};   // seconds one fruit spends in the air
 function resize(){
   DPR = Math.min(2, window.devicePixelRatio || 1); W = window.innerWidth; H = window.innerHeight;
   cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR); ctx.setTransform(DPR,0,0,DPR,0,0);
@@ -868,32 +868,29 @@ function measureItem(it){
   else { const fs = clamp(Math.min(W,H)/17, 20, 30); ctx.font = `800 ${fs}px "Baloo 2"`; const tw = ctx.measureText(it.label).width;
          it.hh = fs*0.95; it.hw = Math.max(tw/2 + fs*0.8, it.hh*1.4); it.font = `800 ${fs}px "Baloo 2"`; }
 }
-function launchWave(list){
+// One fruit at a time: each fruit rises to the middle of the play area and falls back down.
+// The next one launches only after the current one is sliced or has dropped off screen,
+// so fruits never overlap and every swipe is unambiguous.
+function launchOne(it){
+  measureItem(it);
   const top = hudBottom() + 8;
-  list.forEach(measureItem);
-  const maxW = Math.max(...list.map(i => i.hw*2)) + 14, maxH = Math.max(...list.map(i => i.hh*2));
-  const margin = 10; let rows = 1;
-  while(rows < 3 && Math.ceil(list.length/rows)*maxW > W - margin*2) rows++;
-  const perRow = Math.ceil(list.length/rows);
-  const zoneTop = top + maxH*0.6, zoneBot = Math.max(zoneTop + rows*(maxH+16), H*0.62);
-  const order = shuffle(list);
+  const ay = top + it.hh + Math.max(20, (H - top)*0.28);
   const T = PACE[S.settings.pace] || PACE.chill;
-  order.forEach((it, k) => {
-    const r = Math.floor(k/perRow), c = k % perRow, inRow = Math.min(perRow, order.length - r*perRow);
-    const slotW = (W - margin*2)/inRow;
-    const ax = margin + slotW*(c + 0.5) + (Math.random()-0.5)*Math.max(0, slotW - maxW)*0.6;
-    const rowGap = maxH + 18;
-    const baseY = zoneTop + (zoneBot - zoneTop - rows*rowGap)*0.3 + maxH/2;
-    const ay = baseY + r*rowGap + (Math.random()-0.5)*10;
-    const y0 = H + it.hh + 12, tUp = T/2, h = y0 - ay;
-    it.g = 2*h/(tUp*tUp); it.vy = -it.g*tUp;
-    const x0 = clamp(ax + (Math.random()-0.5)*W*0.25, it.hw, W - it.hw);
-    it.x = x0; it.y = y0; it.vx = (ax - x0)/tUp;
-    const spin = it.label.length <= 2 ? 0.6 : 0.12;
-    it.rot = (Math.random()-0.5)*spin*0.5; it.vr = (Math.random()-0.5)*spin;
-    it.delay = r*0.35 + c*0.12; it.state = "wait";
-    if(!it.col) it.col = pick(FRUIT);
-  });
+  const y0 = H + it.hh + 12, tUp = T/2, h = y0 - ay;
+  it.g = 2*h/(tUp*tUp); it.vy = -it.g*tUp;
+  const lanes = [0.3, 0.5, 0.7]; G.lane = (G.lane + 1 + rnd(2)) % 3;
+  const ax = clamp(W*lanes[G.lane], it.hw + 10, W - it.hw - 10);
+  const x0 = clamp(ax + (Math.random()-0.5)*W*0.15, it.hw, W - it.hw);
+  it.x = x0; it.y = y0; it.vx = (ax - x0)/tUp;
+  const spin = it.label.length <= 2 ? 0.6 : 0.12;
+  it.rot = (Math.random()-0.5)*spin*0.5; it.vr = (Math.random()-0.5)*spin;
+  it.state = "fly"; it.alpha = null;
+  if(!it.col) it.col = pick(FRUIT);
+}
+function refillLaunchQueue(){
+  const left = G.items.filter(it => !it.sliced);
+  // letters of a word come up in word order (R, A, B, B, I, T); everything else is shuffled
+  G.launchQ = left.some(it => it.idx != null) ? left.sort((a,b) => a.idx - b.idx) : shuffle(left);
 }
 function beginQuestion(entry){
   const q = entry.q; G.q = q; G.mistakes = 0; G.wrongs = []; G.phase = "play"; G.items = []; G.chop = null; G.hinted = false;
@@ -901,7 +898,7 @@ function beginQuestion(entry){
   if(q.speak) setTimeout(() => say(q.speak), 350);
   if(q.kind === "slice"){
     G.items = q.items.map(o => Object.assign({}, o, {sliced:false}));
-    requestAnimationFrame(() => launchWave(G.items));     // after HUD layout settles
+    G.launchQ = []; G.lane = rnd(3); G.launchGap = 0.45; refillLaunchQueue();   // first fruit after the HUD settles
   } else {
     G.chop = {word:q.word, n:q.word.length, need:new Set(q.cuts), made:new Set(), open:{}, flash:null, bob:0, done:0};
     layoutChop(); requestAnimationFrame(layoutChop);
@@ -946,7 +943,7 @@ function trySlice(a, b){
   for(const it of G.items){ if(it.state === "fly" && !it.sliced && hitItem(it, a, b)) sliceItem(it, a, b); }
 }
 function sliceItem(it, a, b){
-  it.sliced = true; it.state = "sliced";
+  it.sliced = true; it.state = "sliced"; G.launchGap = 0.35;
   const ang = Math.atan2(b.y - a.y, b.x - a.x) || 0;
   spawnBits(it, ang);
   if(it.target){
@@ -1082,9 +1079,8 @@ function update(dt){
   // items
   let flying = 0;
   for(const it of G.items){
-    if(it.state === "wait"){ it.delay -= dt; if(it.delay <= 0) it.state = "fly"; else { flying++; continue; } }
     if(it.state === "fly"){
-      flying++;
+      if(!it.sliced && !it.leaving) flying++;
       it.vy += it.g*dt; it.x += it.vx*dt; it.y += it.vy*dt; it.rot += it.vr*dt;
       if(it.leaving){ it.alpha = (it.alpha == null ? 1 : it.alpha) - dt*2.5; if(it.alpha <= 0) it.state = "gone"; }
       if(it.vy > 0 && it.y - it.hh > H + 10){
@@ -1094,8 +1090,12 @@ function update(dt){
     }
   }
   if(G.phase === "play" && G.q && G.q.kind === "slice" && flying === 0){
-    const again = G.items.filter(it => !it.sliced);
-    if(again.length) launchWave(again);
+    G.launchGap -= dt;
+    if(G.launchGap <= 0){
+      if(!G.launchQ.length) refillLaunchQueue();
+      const next = G.launchQ.shift();
+      if(next){ launchOne(next); G.launchGap = 0.3; }
+    }
   }
   for(const b of G.bits){ b.vy += 900*dt; b.x += b.vx*dt; b.y += b.vy*dt; b.rot += b.vr*dt; b.life -= dt; }
   G.bits = G.bits.filter(b => b.life > 0 && b.y < H + 200);

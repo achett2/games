@@ -20,6 +20,7 @@ letters to split it (syllables, base | ending, vowel teams).
   Every wrong option carries a `why` string, which is shown when it's sliced. `q.why` is the explanation shown on completion.
 - **Chains** (`CHAINS`) are multi-step questions built on one word, e.g. RABBIT: slice the vowels → V/C code → chop rab|bit. They take `ok(skillId)` so later steps are only added once that skill is unlocked.
 - **Mastery**: `S.sk[id].m` (0–1) goes up by 30% of the remaining gap on a first-try success and is multiplied by 0.55 on a miss; `rm` tracks recent misses. `need(id)` weights question selection toward weak skills. A topic's stage moves forward when the current skill reaches m ≥ 0.55 after 3+ questions, or after 2 rounds anyway, so progress is never blocked by perfection.
+- **Fruit launch one at a time** (`launchOne` / `refillLaunchQueue`): the next fruit flies only after the current one is sliced or drops off screen, so fruits never overlap. Letters of a word come up in word order; other options are shuffled. Unsliced answers cycle back. `PACE` is the seconds one fruit spends in the air.
 - Topics unlock after one round of the previous topic. Mixed Review unlocks after 2 topics and draws from every unlocked skill, weighted by `need`.
 - Spelling questions use the browser's `speechSynthesis` (🔊 button).
 

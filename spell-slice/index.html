@@ -180,7 +180,7 @@
    nouns/verbs) + Unit 1 (VC/CV, inflected endings, base words, vowel
    digraphs, diphthongs). Mastery per skill lives in localStorage.
    ===================================================================== */
-const BUILD = "v4";
+const BUILD = "v5";
 const $ = id => document.getElementById(id);
 const rnd = n => Math.floor(Math.random()*n);
 const pick = a => a[rnd(a.length)];
@@ -852,7 +852,7 @@ const cv = $("cv"), ctx = cv.getContext("2d");
 let W = 0, H = 0, DPR = 1;
 const G = {q:null, items:[], bits:[], parts:[], splats:[], floats:[], trail:[], chop:null, phase:"idle", mistakes:0, shake:0, t:0, doneAt:0};
 const FRUIT = [["#ff4d6d","#a3123a"],["#ff9f1c","#b35c00"],["#7ed957","#2f7d1a"],["#b264ff","#5b1fa3"],["#ffd23f","#b38600"],["#3fc5ff","#0b6c9e"],["#ff7ab6","#a8155e"]];
-const PACE = {chill:4.6, normal:3.8, quick:3.0};   // seconds one fruit spends in the air
+const PACE = {chill:3.3, normal:2.7, quick:2.1};   // seconds one fruit spends in the air
 function resize(){
   DPR = Math.min(2, window.devicePixelRatio || 1); W = window.innerWidth; H = window.innerHeight;
   cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR); ctx.setTransform(DPR,0,0,DPR,0,0);
@@ -898,7 +898,7 @@ function beginQuestion(entry){
   if(q.speak) setTimeout(() => say(q.speak), 350);
   if(q.kind === "slice"){
     G.items = q.items.map(o => Object.assign({}, o, {sliced:false}));
-    G.launchQ = []; G.lane = rnd(3); G.launchGap = 0.45; refillLaunchQueue();   // first fruit after the HUD settles
+    G.launchQ = []; G.lane = rnd(3); G.launchGap = 0.35; refillLaunchQueue();   // first fruit after the HUD settles
   } else {
     G.chop = {word:q.word, n:q.word.length, need:new Set(q.cuts), made:new Set(), open:{}, flash:null, bob:0, done:0};
     layoutChop(); requestAnimationFrame(layoutChop);
@@ -943,7 +943,7 @@ function trySlice(a, b){
   for(const it of G.items){ if(it.state === "fly" && !it.sliced && hitItem(it, a, b)) sliceItem(it, a, b); }
 }
 function sliceItem(it, a, b){
-  it.sliced = true; it.state = "sliced"; G.launchGap = 0.35;
+  it.sliced = true; it.state = "sliced"; G.launchGap = 0.2;
   const ang = Math.atan2(b.y - a.y, b.x - a.x) || 0;
   spawnBits(it, ang);
   if(it.target){
@@ -1094,7 +1094,7 @@ function update(dt){
     if(G.launchGap <= 0){
       if(!G.launchQ.length) refillLaunchQueue();
       const next = G.launchQ.shift();
-      if(next){ launchOne(next); G.launchGap = 0.3; }
+      if(next){ launchOne(next); G.launchGap = 0.15; }
     }
   }
   for(const b of G.bits){ b.vy += 900*dt; b.x += b.vx*dt; b.y += b.vy*dt; b.rot += b.vr*dt; b.life -= dt; }

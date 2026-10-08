@@ -110,6 +110,7 @@
   .card .stars{color:var(--gold); font-size:15px; letter-spacing:2px;}
   .card .btns{display:flex; flex-direction:column; gap:6px;}
   .play{border:none; border-radius:12px; background:linear-gradient(180deg,#ffcf4a,#ff8a1c); color:#2b1300; font-weight:800; font-size:17px; padding:8px 14px; box-shadow:0 3px 0 #a04a00;}
+  .play:disabled{background:#4a3d6b; color:#b9a8d8; box-shadow:0 3px 0 #2a1f45; cursor:default;}
   .ghost{border:2px solid var(--line); border-radius:12px; background:transparent; color:var(--ink); font-weight:800; font-size:14px; padding:4px 10px;}
   .big{display:block; width:100%; margin-top:12px; font-size:22px; padding:12px;}
   .mixed{margin-top:18px;}
@@ -180,7 +181,7 @@
    nouns/verbs) + Unit 1 (VC/CV, inflected endings, base words, vowel
    digraphs, diphthongs). Mastery per skill lives in localStorage.
    ===================================================================== */
-const BUILD = "v6";
+const BUILD = "v7";
 const $ = id => document.getElementById(id);
 const rnd = n => Math.floor(Math.random()*n);
 const pick = a => a[rnd(a.length)];
@@ -1402,9 +1403,17 @@ function showExplain(q){
   if(!R || G.phase !== "done") return;
   const oops = uniq(G.wrongs || []).slice(0, 2);
   openModal(`<h2>LET'S LOCK IT IN 🔒</h2>${oops.map(w => `<p style="text-align:center;color:#ffb3bd;font-weight:800">✗ ${esc(w)}</p>`).join("")}<p class="big-why">✓ ${esc(q.why)}</p>${q.hint ? `<p style="text-align:center;color:var(--dim)">💡 ${esc(q.hint)}</p>` : ""}
-    <button class="play big" id="explainGo">GOT IT →</button>`);
+    <button class="play big" id="explainGo" disabled>READ IT… 3</button>`);
   if(q.speak) say(q.speak.split(".")[0]);
-  $("explainGo").onclick = () => { closeModal(); goNext(); };
+  // the button unlocks after 3 seconds so the explanation actually gets read
+  const btn = $("explainGo"); let left = 3;
+  const tick = setInterval(() => {
+    left--;
+    if(!document.body.contains(btn)){ clearInterval(tick); return; }
+    if(left > 0){ btn.textContent = `READ IT… ${left}`; return; }
+    clearInterval(tick); btn.disabled = false; btn.textContent = "GOT IT →";
+  }, 1000);
+  btn.onclick = () => { if(btn.disabled) return; clearInterval(tick); closeModal(); goNext(); };
 }
 function endRound(){
   const acc = R.done ? R.first/R.done : 0;

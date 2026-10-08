@@ -65,11 +65,11 @@
   .sent{font-size:clamp(20px,5.4vw,28px); font-weight:800; line-height:1.9; padding-top:8px; display:flex; flex-wrap:wrap; justify-content:center; gap:0 8px;}
   .sent .w{position:relative; padding:0 3px; border-radius:6px;}
   .sent .w.hl{background:var(--gold); color:#2a1b00; padding:0 8px;}
-  .sent .w.hitn{background:rgba(56,182,255,.35);} .sent .w.hitv{background:rgba(255,122,69,.4);}
+  .sent .w.hitn{background:rgba(56,182,255,.35);} .sent .w.hitv{background:rgba(255,122,69,.4);} .sent .w.hita{background:rgba(75,227,122,.35);}
   .sent .w[data-t]::after{content:attr(data-t); position:absolute; left:50%; top:-14px; transform:translateX(-50%);
           font-size:12px; font-weight:800; letter-spacing:.08em; padding:0 5px; border-radius:6px; line-height:16px; opacity:0; transition:opacity .3s;}
   .sent.tags .w[data-t]::after{opacity:1;}
-  .sent .w[data-t="NOUN"]::after{background:var(--noun); color:#001827;} .sent .w[data-t="VERB"]::after{background:var(--verb); color:#2a0a00;}
+  .sent .w[data-t="NOUN"]::after{background:var(--noun); color:#001827;} .sent .w[data-t="VERB"]::after{background:var(--verb); color:#2a0a00;} .sent .w[data-t="ADJ"]::after{background:var(--good); color:#00240d;}
   .formula{font-family:Bangers; font-size:clamp(26px,7vw,40px); letter-spacing:.05em;}
   .formula .pos{font-family:"Baloo 2"; font-weight:800; font-size:14px; letter-spacing:.12em; display:block; color:var(--dim);}
   .formula .pos.v{color:var(--verb);} .formula .pos.n{color:var(--noun);}
@@ -180,7 +180,7 @@
    nouns/verbs) + Unit 1 (VC/CV, inflected endings, base words, vowel
    digraphs, diphthongs). Mastery per skill lives in localStorage.
    ===================================================================== */
-const BUILD = "v5";
+const BUILD = "v6";
 const $ = id => document.getElementById(id);
 const rnd = n => Math.floor(Math.random()*n);
 const pick = a => a[rnd(a.length)];
@@ -209,20 +209,30 @@ const NOUNS = {
 };
 const NOUN_CAT = {}; for(const k in NOUNS) NOUNS[k].forEach(w => NOUN_CAT[w] = k);
 const NOUN_LIST = Object.keys(NOUN_CAT);
+const ADJ_LIST = ["big","tiny","red","happy","silly","soft","tall","cold","hot","green","fuzzy","spooky","warty","black",
+                  "brave","sleepy","shiny","funny","old","young","ugly","wobbly","hungry","sticky","smelly","bumpy","purple","scary"];
 const VERB_LIST = ["jump","run","swim","laugh","write","eat","sing","throw","climb","read","sleep","kick","build","catch",
                    "hop","shout","clap","push","sit","grab","sneeze","bake","skip","dig","yell","chew","spin","wiggle"];
 
 // Sentences: {word:n} = noun, {word:v} = verb. Kept free of pronouns/helping verbs so the target words are clear.
+// Sentences: {word:n} = noun, {word:v} = verb, {word:a} = adjective.
 const SENTS = [
-  "The {dog:n} {runs:v} fast.", "{Mom:n} {bakes:v} a {cake:n}.", "The {cat:n} {sleeps:v} on the {bed:n}.",
-  "A {bird:n} {sings:v} in the {tree:n}.", "The {teacher:n} {reads:v} a {book:n}.", "{Jacob:n} {kicks:v} the {ball:n}.",
-  "The {frog:n} {jumped:v} into the {pond:n}.", "My {sister:n} {laughs:v} at the {joke:n}.", "The {baby:n} {cried:v} loudly.",
-  "The {boys:n} {played:v} at the {park:n}.", "A {horse:n} {eats:v} {hay:n}.", "The {children:n} {swim:v} in the {lake:n}.",
-  "{Dad:n} {fixes:v} the {car:n}.", "The {fox:n} {hopped:v} over the {log:n}.", "The {puppy:n} {chews:v} a {shoe:n}.",
-  "Our {class:n} {visits:v} the {zoo:n}.", "The {owner:n} {walks:v} the {dog:n}.", "The {ball:n} {bounced:v} high.",
-  "The {chef:n} {cooks:v} {soup:n}.", "A {duck:n} {swims:v} in the {pond:n}.", "The {pilot:n} {flies:v} the {plane:n}.",
-  "The {farmer:n} {feeds:v} the {pigs:n}.", "{Grandma:n} {knits:v} a {hat:n}.", "The {fountain:n} {sprays:v} {water:n}."
+  "The {big:a} {dog:n} {runs:v} fast.", "{Mom:n} {bakes:v} a {yummy:a} {cake:n}.", "The {sleepy:a} {cat:n} {naps:v} on the {soft:a} {bed:n}.",
+  "A {little:a} {bird:n} {sings:v} in the {tree:n}.", "The {teacher:n} {reads:v} a {funny:a} {book:n}.", "{Jacob:n} {kicks:v} the {red:a} {ball:n}.",
+  "The {green:a} {frog:n} {jumped:v} into the {pond:n}.", "My {sister:n} {laughs:v} at the {silly:a} {joke:n}.", "The {hungry:a} {baby:n} {cried:v} loudly.",
+  "The {boys:n} {played:v} at the {park:n}.", "A {brown:a} {horse:n} {eats:v} {hay:n}.", "The {children:n} {swim:v} in the {cold:a} {lake:n}.",
+  "{Dad:n} {fixes:v} the {old:a} {car:n}.", "The {fox:n} {hopped:v} over the {log:n}.", "The {puppy:n} {chews:v} a {smelly:a} {shoe:n}.",
+  "Our {class:n} {visits:v} the {zoo:n}.", "The {owner:n} {walks:v} the {tiny:a} {dog:n}.", "The {ball:n} {bounced:v} high.",
+  "The {chef:n} {cooks:v} {hot:a} {soup:n}.", "A {duck:n} {swims:v} in the {muddy:a} {pond:n}.", "The {pilot:n} {flies:v} the {plane:n}.",
+  "The {farmer:n} {feeds:v} the {pigs:n}.", "{Grandma:n} {knits:v} a {warm:a} {hat:n}.", "The {fountain:n} {sprays:v} {water:n}.",
+  // Halloween set (matches the class worksheets)
+  "{Warty:a} {witches:n} {fly:v} across the {moonlit:a} {sky:n}.", "{Black:a} {cats:n} {sit:v} on the {fence:n}.",
+  "{Black:a} {bats:n} {hang:v} upside down.", "{White:a} {ghosts:n} {cast:v} {spooky:a} {spells:n}.",
+  "{Wobbly:a} {skeletons:n} {clack:v} and {clatter:v} down the {street:n}.", "{Silly:a} {ghosts:n} {dance:v} for {fun:n}.",
+  "Boo! {Scary:a} {spiders:n} {hang:v} in the {dark:a} {room:n}.", "Wow, the {tall:a} {witch:n} {stirs:v} the {bubbly:a} {pot:n}."
 ];
+// Conjunctions and interjections stay in the sentence but never fly up as fruit.
+const NO_FRUIT = new Set(["and","but","or","so","because","yet","nor","boo","wow","oh","hey","ouch","yay","oops","uh","um","eek","yikes","whoa"]);
 // Same word, different job (noun vs verb depends on the sentence).
 const TRICKY = [
   "The {kids:n} {play:v} tag.", "We saw a {play:n} at school.",
@@ -373,6 +383,8 @@ const SKILLS = {
   v_list:{name:"Verbs", tip:"A VERB is an action — what someone or something DOES."},
   n_sent:{name:"Nouns in sentences", tip:"Find the nouns inside a real sentence."},
   v_sent:{name:"Verbs in sentences", tip:"Find the action in the sentence. What is someone DOING?"},
+  a_list:{name:"Adjectives", tip:"An ADJECTIVE describes a noun: what kind? what color? how big?"},
+  a_sent:{name:"Adjectives in sentences", tip:"Find the describing word. It usually sits right before a noun."},
   nv_tricky:{name:"Same word, new job", tip:"Some words can be a noun OR a verb. The sentence decides!"},
   vccv_split:{name:"Split VC/CV words", tip:"Two consonants between vowels? Split between them: VC | CV."},
   vccv_find:{name:"Spot VCCV", tip:"Look for TWO consonants between two vowels."},
@@ -392,7 +404,7 @@ const SKILLS = {
 };
 const TOPICS = [
   {id:"vc", unit:"F", icon:"🔤", name:"Vowels & Consonants", stages:["v_letter","c_letter","v_word","c_word","vc_code","vc_pattern"], warm:[], chains:["vcw"]},
-  {id:"nv", unit:"F", icon:"🏃", name:"Nouns & Verbs", stages:["n_list","v_list","n_sent","v_sent","nv_tricky"], warm:[], chains:["nvs"]},
+  {id:"nv", unit:"F", icon:"🏃", name:"Nouns, Verbs & Adjectives", stages:["n_list","v_list","a_list","n_sent","v_sent","a_sent","nv_tricky"], warm:[], chains:["nvs"]},
   {id:"w1", unit:"U", wk:1, icon:"✂️", name:"VC/CV Syllables", stages:["vccv_split","vccv_find"], warm:["v_word","c_word","vc_code","vc_pattern"], chains:["vccv"]},
   {id:"w2", unit:"U", wk:2, icon:"➕", name:"Inflected Endings", stages:["infl_add","infl_s_es","infl_rule"], warm:["v_sent","n_list","v_list","vc_pattern"], chains:["dbl"]},
   {id:"w3", unit:"U", wk:3, icon:"🪓", name:"Base Words + Endings", stages:["base_chop","end_pick","base_pick"], warm:["v_sent","n_sent","nv_tricky","infl_add"], chains:["base","why"]},
@@ -500,26 +512,44 @@ function qNList(){
     items:shuffle([...n.map(w => ({label:w, target:true, note:NOUN_CAT[w]+"!"})), ...v.map(w => ({label:w, target:false, why:verbWhy(w)}))]),
     why:`Nouns: ${n.map(w => `${w} (${NOUN_CAT[w]})`).join(", ")}.`, hint:"Noun = person, place, thing, or animal. Can you put THE in front?"};
 }
+function qAList(){
+  const a = sample(ADJ_LIST, 2 + rnd(2)), n = sample(NOUN_LIST, 1 + rnd(2)), v = sample(VERB_LIST, 1 + rnd(2));
+  return {kind:"slice", skill:"a_list", prompt:"Slice the <b>ADJECTIVES</b>", ctx:null,
+    items:shuffle([...a.map(w => ({label:w, target:true, note:"describes!"})),
+                   ...n.map(w => ({label:w, target:false, why:`"${w}" is a noun — a ${NOUN_CAT[w]}. Adjectives DESCRIBE nouns: a big ${w}, a silly ${w}.`})),
+                   ...v.map(w => ({label:w, target:false, why:`"${w}" is a verb — an action. Adjectives describe nouns: what kind? what color?`}))]),
+    why:`Adjectives: ${a.join(", ")} — they describe nouns (a ${a[0]} cat!).`, hint:"Adjective = a describing word. Try it before a noun: a ___ dog."};
+}
 function qVList(){
   const v = sample(VERB_LIST, 2 + rnd(2)), n = sample(NOUN_LIST, 2 + rnd(2));
   return {kind:"slice", skill:"v_list", prompt:"Slice the <b>VERBS</b>", ctx:null,
     items:shuffle([...v.map(w => ({label:w, target:true, note:"action!"})), ...n.map(w => ({label:w, target:false, why:`"${w}" is a noun — a ${NOUN_CAT[w]}. Verbs are actions.`}))]),
     why:`Verbs: ${v.join(", ")} — things you can DO.`, hint:"Verb = action. Can you act it out? Then it's a verb!"};
 }
+const TAG_NAME = {n:"NOUN", v:"VERB", a:"ADJECTIVE"};
+function sentWhy(t, tag){
+  if(t.tag === "n") return `"${t.w}" is a noun here — a person, place, thing, or animal.` + (tag === "a" ? " Find the word that DESCRIBES it." : tag === "v" ? " Look for the action!" : "");
+  if(t.tag === "v") return `"${t.w}" is the verb — the action.` + (tag === "a" ? " Adjectives describe a noun." : "");
+  if(t.tag === "a") return `"${t.w}" is an adjective — it describes a noun (what kind?).` + (tag === "n" ? " Slice the noun it describes!" : "");
+  if(tag === "n") return `"${t.w}" is a helper word, not a noun. Nouns name a person, place, thing, or animal.`;
+  if(tag === "a") return `"${t.w}" doesn't describe a noun here. Adjectives tell what kind: big, silly, green.`;
+  return `"${t.w}" isn't the action. Ask: what is someone DOING?`;
+}
 function qSent(s, tag){
   s = s || pick(SENTS); const toks = parseSent(s);
-  if(!tag) tag = toks.some(t => t.tag === "n") && Math.random() < 0.5 ? "n" : "v";
-  const nT = toks.filter(t => t.tag === tag).length, nm = tag === "n" ? "NOUN" : "VERB";
-  const items = toks.map((t,i) => ({label:t.w, target:t.tag === tag, idx:i,
-    why: t.tag === tag ? "" : t.tag === "n" ? `"${t.w}" is a noun here — a person, place, thing, or animal. Look for the action!`
-       : t.tag === "v" ? `"${t.w}" is the verb — the action. Nouns are people, places, things, animals.`
-       : tag === "n" ? `"${t.w}" is a helper word, not a noun. Nouns name a person, place, thing, or animal.`
-       : `"${t.w}" isn't the action. Ask: what is someone DOING?`}));
-  return {kind:"slice", skill:tag === "n" ? "n_sent" : "v_sent", prompt:`Slice the <b>${nm}${nT > 1 ? "S" : ""}</b>`,
+  if(!tag) tag = pick(["n","v","a"].filter(x => toks.some(t => t.tag === x)));
+  const tg = toks.filter(t => t.tag === tag), nm = TAG_NAME[tag];
+  const items = toks.map((t,i) => ({label:t.w, target:t.tag === tag, idx:i, why: t.tag === tag ? "" : sentWhy(t, tag)}))
+                    .filter(it => !NO_FRUIT.has(it.label.toLowerCase()));
+  const nouns = toks.filter(t => t.tag === "n").map(t => t.w);
+  return {kind:"slice", skill:{n:"n_sent", v:"v_sent", a:"a_sent"}[tag], prompt:`Slice the <b>${nm}${tg.length > 1 ? "S" : ""}</b>`,
     ctx:{t:"sent", toks, mark:tag}, items, revealTags:true,
-    why: tag === "n" ? `Nouns: ${toks.filter(t => t.tag === "n").map(t => t.w).join(", ")}.`
-                     : `The verb is ${toks.filter(t => t.tag === "v").map(t => U(t.w)).join(", ")} — it tells what happens.`,
-    hint: tag === "n" ? "Who or what is in the sentence? Those are nouns." : "What is happening? That word is the verb."};
+    why: tag === "n" ? `Nouns: ${nouns.join(", ")}.`
+       : tag === "v" ? `The verb${tg.length > 1 ? "s are" : " is"} ${tg.map(t => U(t.w)).join(" and ")} — it tells what happens.`
+       : `Adjective${tg.length > 1 ? "s" : ""}: ${tg.map(t => U(t.w)).join(", ")} — ${tg.length > 1 ? "they describe" : "it describes"} a noun.`,
+    hint: tag === "n" ? "Who or what is in the sentence? Those are nouns."
+        : tag === "v" ? "What is happening? That word is the verb."
+        : "Find a noun, then look right before it: which word describes it? (what kind? what color?)"};
 }
 function qNVHighlight(s, why){
   const toks = parseSent(s); const hl = toks.findIndex(t => t.tag); const t = toks[hl];
@@ -686,7 +716,8 @@ function qOwSound(){
 /* ---------- skill → generator ---------- */
 const GEN = {
   v_letter:qVLetter, c_letter:qCLetter, v_word:() => qVWord(), c_word:() => qCWord(), vc_code:() => qVCCode(), vc_pattern:() => qVCPattern(),
-  n_list:qNList, v_list:qVList, n_sent:() => qSent(pick(SENTS), "n"), v_sent:() => qSent(pick(SENTS), "v"), nv_tricky:qTricky,
+  n_list:qNList, v_list:qVList, n_sent:() => qSent(pick(SENTS), "n"), v_sent:() => qSent(pick(SENTS), "v"),
+  a_list:qAList, a_sent:() => qSent(pick(SENTS.filter(x => x.includes(":a}"))), "a"), nv_tricky:qTricky,
   vccv_split:() => qVccvSplit(), vccv_find:qVccvFind,
   infl_add:() => qInflAdd(), infl_s_es:qSEs, infl_rule:() => qInflRule(pick(INFL.filter(e => e.rule !== "A" || Math.random() < 0.3))),
   base_chop:() => qBaseChop(), end_pick:() => qEndPick(), base_pick:() => qBasePick(),
@@ -706,7 +737,10 @@ const CHAINS = {
     if(ok("vc_code")) st.push(qVCCode(w, true));
     return {label:U(w), steps:st}; },
   // sentence: nouns, then the verb, in the same sentence
-  nvs(ok){ if(!ok("n_sent")) return null; const s = pick(SENTS); const st = [qSent(s, "n")]; if(ok("v_sent")) st.push(qSent(s, "v")); return {label:"SENTENCE", steps:st}; },
+  // noun → the adjective that describes it → the verb, all in one sentence
+  nvs(ok){ if(!ok("n_sent")) return null; const s = pick(SENTS); const st = [qSent(s, "n")];
+    if(ok("a_sent") && s.includes(":a}")) st.push(qSent(s, "a"));
+    if(ok("v_sent")) st.push(qSent(s, "v")); return {label:"SENTENCE", steps:st}; },
   // RABBIT: vowels → V/C → split
   vccv(){ const e = pick(VCCV);
     return {label:U(e.w), steps:[
@@ -875,12 +909,20 @@ function launchOne(it){
   measureItem(it);
   const top = hudBottom() + 8;
   const ay = top + it.hh + Math.max(20, (H - top)*0.28);
-  const T = PACE[S.settings.pace] || PACE.chill;
+  const T = (PACE[S.settings.pace] || PACE.chill) * (G.q.speed || 1);
   const y0 = H + it.hh + 12, tUp = T/2, h = y0 - ay;
   it.g = 2*h/(tUp*tUp); it.vy = -it.g*tUp;
-  const lanes = [0.3, 0.5, 0.7]; G.lane = (G.lane + 1 + rnd(2)) % 3;
-  const ax = clamp(W*lanes[G.lane], it.hw + 10, W - it.hw - 10);
-  const x0 = clamp(ax + (Math.random()-0.5)*W*0.15, it.hw, W - it.hw);
+  let ax, drift;
+  if((G.q.perWave || 1) > 1){
+    // two lanes (left/right); take the one the other flying fruit isn't using
+    const busy = G.items.filter(o => o !== it && o.state === "fly" && !o.sliced && !o.leaving).map(o => o.lane);
+    it.lane = busy.includes(0) ? 1 : busy.includes(1) ? 0 : rnd(2);
+    ax = W*[0.27, 0.73][it.lane]; drift = 0.05;
+  } else {
+    G.lane = (G.lane + 1 + rnd(2)) % 3; it.lane = G.lane; ax = W*[0.3, 0.5, 0.7][G.lane]; drift = 0.15;
+  }
+  ax = clamp(ax, it.hw + 10, W - it.hw - 10);
+  const x0 = clamp(ax + (Math.random()-0.5)*W*drift, it.hw, W - it.hw);
   it.x = x0; it.y = y0; it.vx = (ax - x0)/tUp;
   const spin = it.label.length <= 2 ? 0.6 : 0.12;
   it.rot = (Math.random()-0.5)*spin*0.5; it.vr = (Math.random()-0.5)*spin;
@@ -888,7 +930,7 @@ function launchOne(it){
   if(!it.col) it.col = pick(FRUIT);
 }
 function refillLaunchQueue(){
-  const left = G.items.filter(it => !it.sliced);
+  const left = G.items.filter(it => !it.sliced && it.state !== "fly");
   // letters of a word come up in word order (R, A, B, B, I, T); everything else is shuffled
   G.launchQ = left.some(it => it.idx != null) ? left.sort((a,b) => a.idx - b.idx) : shuffle(left);
 }
@@ -897,6 +939,7 @@ function beginQuestion(entry){
   renderHud(entry);
   if(q.speak) setTimeout(() => say(q.speak), 350);
   if(q.kind === "slice"){
+    if(TOPIC.vc.stages.includes(q.skill)){ q.perWave = 2; q.speed = 0.75; }   // Vowels & Consonants: 2 at a time, faster
     G.items = q.items.map(o => Object.assign({}, o, {sliced:false}));
     G.launchQ = []; G.lane = rnd(3); G.launchGap = 0.35; refillLaunchQueue();   // first fruit after the HUD settles
   } else {
@@ -1089,7 +1132,7 @@ function update(dt){
       }
     }
   }
-  if(G.phase === "play" && G.q && G.q.kind === "slice" && flying === 0){
+  if(G.phase === "play" && G.q && G.q.kind === "slice" && flying < (G.q.perWave || 1)){
     G.launchGap -= dt;
     if(G.launchGap <= 0){
       if(!G.launchQ.length) refillLaunchQueue();
@@ -1235,7 +1278,7 @@ function renderCtx(q){
   if(c.t === "word"){
     box.innerHTML = `<div class="tiles">${[...c.w].map((l,i) => `<div class="tile ${c.pre === "v" && isV(l) ? "v" : ""}" data-i="${i}"><div class="L">${esc(l)}</div><div class="C ${isV(l) ? "V" : "Cc"}">${isV(l) ? "V" : "C"}</div></div>`).join("")}</div>`;
   } else if(c.t === "sent"){
-    box.innerHTML = `<div class="sent">${c.toks.map((t,i) => `<span class="w ${i === c.hl ? "hl" : ""}" data-i="${i}" ${t.tag ? `data-t="${t.tag === "n" ? "NOUN" : "VERB"}"` : ""}>${esc(t.w)}${esc(t.p)}</span>`).join("")}</div>`;
+    box.innerHTML = `<div class="sent">${c.toks.map((t,i) => `<span class="w ${i === c.hl ? "hl" : ""}" data-i="${i}" ${t.tag ? `data-t="${t.tag === "a" ? "ADJ" : TAG_NAME[t.tag]}"` : ""}>${esc(t.w)}${esc(t.p)}</span>`).join("")}</div>`;
   } else if(c.t === "text"){
     box.innerHTML = `<div style="font-weight:800;font-size:17px;color:var(--dim)">${c.html}</div>`;
   } else if(c.t === "clue"){
@@ -1248,7 +1291,7 @@ function markTile(it){
   const c = G.q.ctx; if(!c || it.idx == null) return;
   const el = $("ctx").querySelector(`[data-i="${it.idx}"]`); if(!el) return;
   if(c.t === "word") el.classList.add(c.mark === "team" ? "team" : c.mark === "c" ? "c" : "v");
-  if(c.t === "sent") el.classList.add(c.mark === "n" ? "hitn" : "hitv");
+  if(c.t === "sent") el.classList.add({n:"hitn", v:"hitv", a:"hita"}[c.mark]);
 }
 function revealCode(){ $("ctx").querySelectorAll(".tile .C").forEach(e => e.classList.add("on")); }
 function setNote(html, cls){ const n = $("note"); n.innerHTML = html; n.className = html ? `show ${cls}` : ""; if(G.chop) requestAnimationFrame(layoutChop); }
@@ -1312,6 +1355,9 @@ const LESSONS = {
       <p>Test: can you put <b>the</b> in front? <i>the dog</i> ✓</p></div>
       <div class="box"><p><span class="k vb">VERB</span> = an <b>action</b> — what someone or something DOES.</p><div class="ex vb">run · swim · laugh · write</div>
       <p>Test: can you act it out? Then it's a verb!</p></div>
+      <div class="box"><p><span class="k" style="color:var(--good)">ADJECTIVE</span> = a <b>describing word</b>. It tells about a noun: what kind? what color? how big?</p>
+      <div class="ex"><span style="color:var(--good)">Warty</span> <span class="nn">witches</span> <span class="vb">fly</span> across the <span style="color:var(--good)">moonlit</span> <span class="nn">sky</span>.</div>
+      <p>Test: does it fit in "a ___ dog"? <i>a silly dog</i> ✓</p></div>
       <div class="box"><p><b>Same word, different job:</b> the sentence decides.</p>
       <p>We <span class="vb"><b>RUN</b></span> fast. → verb (action)<br>Dad went for a <span class="nn"><b>RUN</b></span>. → noun (a thing)</p></div>`,
   w1:`<div class="box"><p>Use your <b>V/C code</b>! Look for <b>two consonants between two vowels</b>: <span class="k">V C C V</span></p>
@@ -1421,6 +1467,7 @@ window.__selfTest = function(n){
       if(!t.length) errs.push(`${where}: no target`);
       if(q.items.length < 2 || q.items.length > 9) errs.push(`${where}: ${q.items.length} items`);
       if(!q.ctx || q.ctx.t !== "word" && q.ctx.t !== "sent"){ const labs = q.items.map(i => i.label); if(uniq(labs).length !== labs.length) errs.push(`${where}: dup labels ${labs}`); }
+      if(q.items.some(i => NO_FRUIT.has(String(i.label).toLowerCase()))) errs.push(`${where}: conjunction/interjection fruit`);
       if(q.items.some(i => !i.target && !i.why)) errs.push(`${where}: missing why for ${q.items.filter(i => !i.target && !i.why).map(i => i.label)}`);
     } else {
       if(!q.cuts.length || q.cuts.some(c => c < 1 || c >= q.word.length)) errs.push(`${where}: bad cuts ${q.word} ${q.cuts}`);

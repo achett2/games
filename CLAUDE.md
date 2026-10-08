@@ -24,6 +24,8 @@ letters to split it (syllables, base | ending, vowel teams).
 - Topics unlock after one round of the previous topic. Mixed Review unlocks after 2 topics and draws from every unlocked skill, weighted by `need`.
 - The "Let's lock it in" card (`showExplain`, shown after a question with mistakes) keeps its GOT IT button disabled for 3 seconds with a countdown.
 - Spelling questions use the browser's `speechSynthesis` (🔊 button).
+- **Sort** questions (`kind:"sort"`, skill `diph_sort`, Week 5): one word at a time; drag it into one of 4 bins (OW/OU/OI/OY) drawn along the bottom, or tap a bin while the word is in the air. `SORT_WORDS` includes the class worksheet words; `sortBins(w)` can return two bins (cowboy). Wrong drops fall away and come back.
+- **Say it** questions (`kind:"say"`, skill `diph_say`): after each sort (preferring a word he missed) and in the `diph` chain. Uses `SpeechRecognition`; `judgeSound()` is deliberately generous (any alternative matching the sound family or the word counts) and treats long O ("oh") as wrong for OU/OW. There's a grown-up override button and Skip; without a microphone it becomes an ungraded self-check. Settings → "Say-it practice" turns it off.
 
 ### Working on it
 - Validate the JS after editing: extract the `<script>` block and `node --check` it.

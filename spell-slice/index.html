@@ -77,9 +77,20 @@
   .clue .blank{display:inline-block; min-width:70px; border-bottom:3px solid var(--gold); margin:0 4px;}
   .speak{border:2px solid var(--line); background:var(--card); color:var(--ink); border-radius:999px; font-size:16px; font-weight:800; padding:2px 12px; margin-left:6px; vertical-align:middle;}
 
+  .saybox{margin:10px auto 0; max-width:520px; background:rgba(0,0,0,.3); border:2px solid var(--line); border-radius:18px; padding:14px 12px;}
+  .sayword{font-family:Bangers; font-size:clamp(46px,13vw,72px); letter-spacing:.06em; line-height:1.1;}
+  .sayword .tm{color:#ff7af0; text-shadow:0 0 16px rgba(255,122,240,.7);}
+  .saytip{font-weight:800; font-size:17px; margin:6px 0 10px;}
+  .sayrow{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:8px;}
+  .saybtn{border:none; border-radius:14px; padding:12px 18px; font-weight:800; font-size:20px; background:var(--card); color:var(--ink); border:2px solid var(--line);}
+  .saybtn.mic{background:linear-gradient(180deg,#ffcf4a,#ff8a1c); color:#2b1300; border-color:#a04a00;}
+  .saybtn:disabled{opacity:.7;}
+  .sayres{min-height:24px; font-weight:800; font-size:17px; margin-top:10px;}
+  .sayres.good{color:var(--good);} .sayres.bad{color:#ffb3bd;}
   #toast{position:fixed; left:50%; bottom:calc(18px + env(safe-area-inset-bottom)); transform:translateX(-50%) translateY(20px);
          width:max-content; max-width:min(92vw,620px); background:#3b0f1e; border:2px solid var(--bad); color:#fff; border-radius:14px;
          padding:10px 14px; font-weight:800; font-size:17px; line-height:1.25; text-align:center; opacity:0; transition:all .25s; z-index:8; pointer-events:none;}
+  body.sorting #toast{bottom:calc(130px + env(safe-area-inset-bottom));}
   #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
   #toast.info{background:#1d2b55; border-color:#7aa8ff;}
   #toast.new{background:#3d2a00; border-color:var(--gold);}
@@ -181,7 +192,7 @@
    nouns/verbs) + Unit 1 (VC/CV, inflected endings, base words, vowel
    digraphs, diphthongs). Mastery per skill lives in localStorage.
    ===================================================================== */
-const BUILD = "v7";
+const BUILD = "v8";
 const $ = id => document.getElementById(id);
 const rnd = n => Math.floor(Math.random()*n);
 const pick = a => a[rnd(a.length)];
@@ -345,6 +356,12 @@ const EXTRA4 = "tree green feet sleep week seed queen team read beach meat clean
 const EXTRA5 = "cloud house mouth loud round out cow town crown down owl clown brown coin oil boil point soil join noise boy toy joy oyster".split(" ");
 const WORDS4 = SPELL4.map(s => s.w).concat(EXTRA4);
 const WORDS5 = SPELL5.map(s => s.w).concat(EXTRA5);
+// 4-bin diphthong sort (includes the class worksheet words). A word can belong to two bins (cowboy: OW + OY).
+const SORT_BINS = ["ow","ou","oi","oy"];
+const SORT_EX = {ow:"cow", ou:"cloud", oi:"coin", oy:"boy"};
+const SORT_WORDS = uniq(("foil loud gown coil house growl moist enjoy round spoil clown bounce cowboy eyebrows voyage cloudy avoid annoy mouse boiling " +
+  "thousand shower power appoint proud fountain cloud mouth out town crown down owl brown oil boil point join noise boy toy joy oyster").split(" "));
+const sortBins = w => uniq(teamHits(w, SORT_BINS).map(h => h.t));
 const OW_COW = ["cow","town","crown","clown","owl","down","brown","shower","power","frown","howl"];
 const OW_SNOW = ["snow","grow","slow","bowl","window","show","owner","shadow","blow","crow"];
 const GROUPS4 = {ee:["ee","ea"], ea:["ee","ea"], ai:["ai","ay"], ay:["ai","ay"], ow:["ow","oa"], oa:["ow","oa"]};
@@ -355,7 +372,7 @@ const GROUP_RULE = {
   "ai/ay":"AI usually sits in the MIDDLE (rain, braided, maintain). AY usually sits at the END (play, dis·play).",
   "ow/oa":"OA usually sits in the MIDDLE (boat, charcoal). OW often sits at the END (snow, shad·ow) — and starts OWN words like owner.",
   "ou/ow":"OU usually sits in the MIDDLE (proud, bounce). OW comes at the END or before N, L, or ER (cow, town, owl, power, shower).",
-  "oi/oy":"OI sits in the MIDDLE (avoid, appoint). OY sits at the END (enjoy, annoy)."
+  "oi/oy":"OI sits in the MIDDLE (avoid, appoint). OY sits at the END of a word or syllable (enjoy, annoy, voy·age)."
 };
 const TEAM_SOUND = {ee:"long E", ea:"long E", ai:"long A", ay:"long A", ow:"long O", oa:"long O", ou:"OW (as in cloud)", oi:"OY (as in coin)", oy:"OY (as in boy)"};
 const teamSound = (t, wk) => wk === 5 && t === "ow" ? "OW (as in cow)" : TEAM_SOUND[t];
@@ -401,7 +418,9 @@ const SKILLS = {
   diph_find:{name:"Find the diphthong", tip:"A sliding vowel sound: ou, ow, oi, oy."},
   diph_choose:{name:"ou/ow · oi/oy", tip:"OI in the middle, OY at the end. OU in the middle, OW at the end."},
   ow_sound:{name:"Two sounds of OW", tip:"OW says long O in SNOW but OW! in COW."},
-  diph_spell:{name:"Spell Week 5 words", tip:"Spell the diphthong words."}
+  diph_spell:{name:"Spell Week 5 words", tip:"Spell the diphthong words."},
+  diph_sort:{name:"Sort OW · OU · OI · OY", tip:"Drag each word into its bin: OW, OU, OI or OY."},
+  diph_say:{name:"Say the sound", tip:"OI and OY say \"oy\" (boy). OU and OW say \"ow\" (cow)."}
 };
 const TOPICS = [
   {id:"vc", unit:"F", icon:"🔤", name:"Vowels & Consonants", stages:["v_letter","c_letter","v_word","c_word","vc_code","vc_pattern"], warm:[], chains:["vcw"]},
@@ -410,7 +429,7 @@ const TOPICS = [
   {id:"w2", unit:"U", wk:2, icon:"➕", name:"Inflected Endings", stages:["infl_add","infl_s_es","infl_rule"], warm:["v_sent","n_list","v_list","vc_pattern"], chains:["dbl"]},
   {id:"w3", unit:"U", wk:3, icon:"🪓", name:"Base Words + Endings", stages:["base_chop","end_pick","base_pick"], warm:["v_sent","n_sent","nv_tricky","infl_add"], chains:["base","why"]},
   {id:"w4", unit:"U", wk:4, icon:"👯", name:"Vowel Digraphs", stages:["team_find","team_choose","team_spell"], warm:["v_word","v_letter","vc_code"], chains:["team"]},
-  {id:"w5", unit:"U", wk:5, icon:"🎢", name:"Diphthongs", stages:["diph_find","diph_choose","ow_sound","diph_spell"], warm:["v_word","team_find","team_choose"], chains:["diph"]}
+  {id:"w5", unit:"U", wk:5, icon:"🎢", name:"Diphthongs", stages:["diph_find","diph_sort","diph_choose","ow_sound","diph_spell"], warm:["v_word","team_find","team_choose"], chains:["diph"]}
 ];
 const TOPIC = {}; TOPICS.forEach(t => TOPIC[t.id] = t);
 const FOUNDATION_SKILLS = [...TOPIC.vc.stages, ...TOPIC.nv.stages];
@@ -419,8 +438,9 @@ const FOUNDATION_SKILLS = [...TOPIC.vc.stages, ...TOPIC.nv.stages];
    STATE (localStorage)
    ===================================================================== */
 const SAVE_KEY = "ss_state_v1";
-function freshState(){ return {sk:{}, tp:{}, settings:{pace:"chill", sound:true, voice:true, unlockAll:false}, best:0, tips:{}}; }
+function freshState(){ return {sk:{}, tp:{}, settings:{pace:"chill", sound:true, voice:true, say:true, unlockAll:false}, best:0, tips:{}}; }
 let S = (function(){ try{ const o = JSON.parse(localStorage.getItem(SAVE_KEY)); if(o && o.sk) return Object.assign(freshState(), o); }catch(e){} return freshState(); })();
+if(S.settings.say == null) S.settings.say = true;
 function save(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){} }
 function sk(id){ return S.sk[id] || (S.sk[id] = {m:0, n:0, ok:0, rm:0}); }
 function tp(id){ return S.tp[id] || (S.tp[id] = {plays:0, stars:0, stage:0, stageRounds:0}); }
@@ -714,6 +734,29 @@ function qOwSound(){
     why:`OW has two sounds. ${t.map(U).join(", ")} → ${which}.`, hint:"Say each word out loud. Does OW sound like COW or like SNOW?"};
 }
 
+function sortWhy(w){
+  const b = sortBins(w);
+  return b.length > 1 ? `${U(w)} has TWO diphthongs: ${b.map(U).join(" and ")}! Either bin works.`
+                      : `${U(w)} has ${U(b[0])} — it goes in the ${U(b[0])} bin (${U(b[0])} as in ${SORT_EX[b[0]]}).`;
+}
+function qSort(){
+  // 6 words covering at least 3 different bins
+  let words; do { words = sample(SORT_WORDS, 6); } while(uniq(words.flatMap(sortBins)).length < 3);
+  return {kind:"sort", skill:"diph_sort", prompt:"Sort it: <b>OW · OU · OI · OY</b>",
+    ctx:{t:"text", html:"Drag each word into its bin — or tap the bin while the word is in the air."},
+    items:words.map(w => ({label:w, target:true, bins:sortBins(w), why:sortWhy(w)})),
+    why:`${words.map(w => `${w} → ${sortBins(w).map(U).join("/")}`).join(", ")}.`,
+    hint:"Find the two letters that slide together: OW, OU, OI or OY."};
+}
+const SOUND = {oi:{cat:"oy", say:"oy", like:"boy"}, oy:{cat:"oy", say:"oy", like:"boy"}, ou:{cat:"ow", say:"ow", like:"cow"}, ow:{cat:"ow", say:"ow", like:"cow"}};
+function qSay(w, t){
+  if(!w){ w = pick(SORT_WORDS.filter(x => sortBins(x).length === 1)); }
+  t = t || sortBins(w)[0]; const snd = SOUND[t];
+  return {kind:"say", skill:"diph_say", word:w, team:t, prompt:`Say the <b>${U(t)}</b> sound`,
+    ctx:{t:"say"}, why:`${U(t)} says "${snd.say}" — like in ${snd.like.toUpperCase()}. ${U(w)}!`,
+    hint:`${U(t)} sounds like "${snd.say}" in ${snd.like}. Tap 🔊 to hear it.`};
+}
+
 /* ---------- skill → generator ---------- */
 const GEN = {
   v_letter:qVLetter, c_letter:qCLetter, v_word:() => qVWord(), c_word:() => qCWord(), vc_code:() => qVCCode(), vc_pattern:() => qVCPattern(),
@@ -723,7 +766,8 @@ const GEN = {
   infl_add:() => qInflAdd(), infl_s_es:qSEs, infl_rule:() => qInflRule(pick(INFL.filter(e => e.rule !== "A" || Math.random() < 0.3))),
   base_chop:() => qBaseChop(), end_pick:() => qEndPick(), base_pick:() => qBasePick(),
   team_find:() => qTeamFind(null, 4), team_choose:() => qTeamChoose(null, 4), team_spell:() => qSpell(null, 4),
-  diph_find:() => qTeamFind(null, 5), diph_choose:() => qTeamChoose(null, 5), ow_sound:qOwSound, diph_spell:() => qSpell(null, 5)
+  diph_find:() => qTeamFind(null, 5), diph_choose:() => qTeamChoose(null, 5), ow_sound:qOwSound, diph_spell:() => qSpell(null, 5),
+  diph_sort:qSort, diph_say:() => qSay()
 };
 
 /* =====================================================================
@@ -781,6 +825,7 @@ const CHAINS = {
     const st = [qVWord(s.w, isV(h.t[1]) ? `${U(h.t)}: two vowels side by side — they slide together into ONE sound.`
                                         : `${U(s.w)}: ${U(h.t[1])} isn't a vowel, but ${U(h.t[0])} and ${U(h.t[1])} work together as ONE sliding sound.`),
                 qTeamFind(s.w, 5)];
+    if(S.settings.say !== false) st.push(qSay(s.w, h.t));
     if(ok("diph_choose")) st.push(qTeamChoose(s.w, 5));
     if(ok("diph_spell")) st.push(qSpell(s, 5));
     return {label:U(s.w), steps:st}; }
@@ -927,7 +972,7 @@ function launchOne(it){
   it.x = x0; it.y = y0; it.vx = (ax - x0)/tUp;
   const spin = it.label.length <= 2 ? 0.6 : 0.12;
   it.rot = (Math.random()-0.5)*spin*0.5; it.vr = (Math.random()-0.5)*spin;
-  it.state = "fly"; it.alpha = null;
+  it.state = "fly"; it.alpha = null; it.wrongDrop = false;
   if(!it.col) it.col = pick(FRUIT);
 }
 function refillLaunchQueue(){
@@ -939,8 +984,13 @@ function beginQuestion(entry){
   const q = entry.q; G.q = q; G.mistakes = 0; G.wrongs = []; G.phase = "play"; G.items = []; G.chop = null; G.hinted = false;
   renderHud(entry);
   if(q.speak) setTimeout(() => say(q.speak), 350);
-  if(q.kind === "slice"){
+  G.grab = null; G.hoverBin = -1; G.binFlash = null; G.sayTries = 0; G.sayPick = null;
+  document.body.classList.toggle("sorting", q.kind === "sort");
+  if(q.kind === "say"){ renderSay(q); return; }
+  if(q.kind === "slice" || q.kind === "sort"){
     if(TOPIC.vc.stages.includes(q.skill)){ q.perWave = 2; q.speed = 0.75; }   // Vowels & Consonants: 2 at a time, faster
+    if(q.kind === "sort"){ q.speed = 1.5;
+      if(!S.tips.sort){ S.tips.sort = 1; save(); toast("🧺 Drag each word into its bin — or tap the right bin while the word is in the air.", "info", 4500); } }
     G.items = q.items.map(o => Object.assign({}, o, {sliced:false}));
     G.launchQ = []; G.lane = rnd(3); G.launchGap = 0.35; refillLaunchQueue();   // first fruit after the HUD settles
   } else {
@@ -1018,6 +1068,109 @@ function spawnBits(it, ang){
 }
 function floatText(x, y, text, col, size){ G.floats.push({x, y, text, col, size:size || 24, life:1.1}); }
 
+/* ---- sorting (4 bins along the bottom) ---- */
+function binRects(){
+  const gap = 8, w = (W - gap*5)/4, h = clamp(H*0.11, 70, 100), y = H - h - 14;
+  return SORT_BINS.map((b,i) => ({b, x:gap + i*(w+gap), y, w, h}));
+}
+function binAt(x, y){ const r = binRects(); const i = r.findIndex(b => x >= b.x && x <= b.x + b.w && y >= b.y - 20); return i; }
+function itemAt(x, y){ return G.items.find(it => it.state === "fly" && !it.sliced && !it.leaving && Math.abs(it.x - x) <= it.hw + 10 && Math.abs(it.y - y) <= it.hh + 14); }
+function sortInto(it, bi){
+  if(G.phase !== "play") return;
+  const b = SORT_BINS[bi], r = binRects()[bi];
+  it.grabbed = false; if(G.grab === it) G.grab = null; G.hoverBin = -1;
+  if(it.bins.includes(b)){
+    it.sliced = true; it.state = "sorting"; it.sortT = 0; it.tx = r.x + r.w/2; it.ty = r.y + r.h/2;
+    R.combo++; const pts = 10*(1 + Math.floor(R.combo/3)); R.score += pts; SFX.slice(R.combo);
+    floatText(it.tx, r.y - 18, `${U(b)}! +${pts}`, "#b6ff6b"); G.binFlash = {i:bi, ok:true, t:0.5}; G.launchGap = 0.3;
+    if(it.bins.length > 1) toast(`🤠 ${U(it.label)} has TWO diphthongs: ${it.bins.map(U).join(" and ")}!`, "info", 3000);
+    if(G.items.every(x => x.sliced)) completeQuestion();
+  } else {
+    G.mistakes++; R.combo = 0; G.shake = 0.3; SFX.wrong(); G.binFlash = {i:bi, ok:false, t:0.6};
+    toast(it.why, "", 3800); G.wrongs.push(it.why); G.sayPick = G.sayPick || it.label;
+    it.vx = 0; it.vy = 260; it.wrongDrop = true;   // drops away and comes back later
+    if(G.q.hint && !G.hinted){ G.hinted = true; setNote(`💡 ${G.q.hint}`, "hint"); }
+  }
+  updateScore();
+}
+function drawBins(){
+  const rs = binRects();
+  rs.forEach((r, i) => {
+    const flash = G.binFlash && G.binFlash.i === i ? G.binFlash : null, hover = G.hoverBin === i;
+    ctx.save();
+    ctx.fillStyle = flash ? (flash.ok ? "rgba(75,227,122,.45)" : "rgba(255,90,110,.5)") : hover ? "rgba(255,210,74,.3)" : "rgba(42,27,82,.85)";
+    roundRect(r.x, r.y, r.w, r.h, 16); ctx.fill();
+    ctx.lineWidth = hover ? 4 : 3; ctx.strokeStyle = hover ? "#ffd24a" : "#6a50c0"; ctx.stroke();
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = `${Math.round(r.h*0.42)}px Bangers`; ctx.fillStyle = "#fff"; ctx.fillText(U(r.b), r.x + r.w/2, r.y + r.h*0.4);
+    ctx.font = `700 ${Math.round(r.h*0.19)}px "Baloo 2"`; ctx.fillStyle = "#b9a8d8"; ctx.fillText(SORT_EX[r.b], r.x + r.w/2, r.y + r.h*0.78);
+    ctx.restore();
+  });
+}
+
+/* ---- saying the sound (speech recognition) ---- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let srBroken = false;
+const OY_HEARD = new Set("oy oi oil oils oink boy boys toy toys joy soy coy hoy ahoy koi boi oye roy foil coin boil choy".split(" "));
+const OW_HEARD = new Set("ow ou ouch how wow now cow cows owl out hour our pow vow ao au allow house mouse loud cloud down town brown".split(" "));
+const LONG_O_HEARD = new Set("oh o owe snow go no so show own toe whoa slow row low".split(" "));
+// Generous on purpose: short sounds are hard for speech recognition, so any matching alternative counts.
+function judgeSound(alts, team, word){
+  const cat = SOUND[team].cat, right = cat === "oy" ? OY_HEARD : OW_HEARD, other = cat === "oy" ? OW_HEARD : OY_HEARD;
+  const toks = alts.join(" ").toLowerCase().split(/[^a-z]+/).filter(Boolean), w = word.toLowerCase();
+  const good = toks.find(t => right.has(t) || t === w || t === w + "s");
+  if(good) return {res:"right", heard:good};
+  const bad = toks.find(t => other.has(t) || LONG_O_HEARD.has(t));
+  if(bad) return {res:"wrong", heard:bad, longO:LONG_O_HEARD.has(bad)};
+  return {res:"unclear", heard:toks.join(" ")};
+}
+function listen(onDone){
+  if(!SR || srBroken){ onDone({error:"unsupported"}); return; }
+  try{ window.speechSynthesis && speechSynthesis.cancel(); }catch(e){}
+  let rec, done = false, to;
+  const fin = r => { if(done) return; done = true; clearTimeout(to); try{ rec.stop(); }catch(e){} onDone(r); };
+  try{
+    rec = new SR(); rec.lang = "en-US"; rec.interimResults = false; rec.maxAlternatives = 5; rec.continuous = false;
+    rec.onresult = e => { const alts = []; for(const res of e.results) for(let i=0; i<res.length; i++) alts.push(res[i].transcript); fin({alts}); };
+    rec.onerror = e => { if(["not-allowed","service-not-allowed","audio-capture","network"].includes(e.error)) srBroken = true; fin({error:e.error}); };
+    rec.onend = () => fin({alts:[]});
+    to = setTimeout(() => fin({alts:[]}), 7000);
+    rec.start();
+  }catch(e){ srBroken = true; fin({error:"start"}); }
+}
+function renderSay(q){
+  const snd = SOUND[q.team], w = q.word, i = w.indexOf(q.team);
+  const mic = SR && !srBroken;
+  $("ctx").innerHTML = `<div class="saybox">
+    <div class="sayword">${esc(w.slice(0,i))}<span class="tm">${esc(w.slice(i, i+2))}</span>${esc(w.slice(i+2))}</div>
+    <div class="saytip">${mic ? `Tap 🎤, say the sound <b>${U(q.team)}</b> makes, then say the word.` : `Say the sound <b>${U(q.team)}</b> makes out loud, then the word. Tap 🔊 to check yourself!`}</div>
+    <div class="sayrow"><button class="saybtn mic" id="sayMic">${mic ? "🎤 Tap &amp; say it" : "✓ I said it!"}</button><button class="saybtn" id="sayHear">🔊 Hear it</button></div>
+    <div id="sayRes" class="sayres"></div>
+    <div class="sayrow"><button class="ghost" id="sayOk" hidden>👍 It sounded right (grown-up)</button><button class="ghost" id="saySkip">Skip</button></div></div>`;
+  $("sayHear").onclick = () => say(`${snd.say}. ${snd.say}, as in ${snd.like}. ${w}.`);
+  $("saySkip").onclick = () => { if(G.phase !== "play") return; G.phase = "between"; hideToast(); nextQuestion(); };
+  $("sayOk").onclick = () => { if(G.phase !== "play") return; G.mistakes = 0; G.wrongs = []; completeQuestion(); };
+  $("sayMic").onclick = () => {
+    if(G.phase !== "play") return;
+    if(!(SR && !srBroken)){ q.selfCheck = true; completeQuestion(); return; }     // no microphone: self-check, not graded
+    const btn = $("sayMic"), res = $("sayRes"); btn.disabled = true; btn.textContent = "🎙️ Listening…"; res.textContent = "";
+    listen(r => {
+      if(!$("sayMic") || G.q !== q || G.phase !== "play") return;
+      btn.disabled = false; btn.innerHTML = "🎤 Try again";
+      if(r.error && srBroken){ renderSay(q); $("sayRes").textContent = "The microphone isn't available — say it out loud and use 🔊 to check."; return; }
+      const j = judgeSound(r.alts || [], q.team, w);
+      if(j.res === "right"){ res.className = "sayres good"; res.textContent = `✅ I heard "${j.heard}" — great ${U(q.team)} sound!`; SFX.done(); setTimeout(() => { if(G.q === q && G.phase === "play") completeQuestion(); }, 900); return; }
+      if(j.res === "wrong"){
+        G.mistakes++; const msg = `${U(q.team)} sounds like "${snd.say}" in ${snd.like}${j.longO ? ` — not long O like "snow"` : ""}.`;
+        G.wrongs.push(`I heard "${j.heard}". ${msg}`);
+        res.className = "sayres bad"; res.textContent = `🤔 I heard "${j.heard}". ${msg} Listen, then try again!`; SFX.wrong();
+        setTimeout(() => say(`${snd.say}, as in ${snd.like}.`), 600);
+      } else { G.sayTries++; res.className = "sayres"; res.textContent = `I didn't catch that${j.heard ? ` (heard "${j.heard}")` : ""} — try again, nice and loud!`; }
+      $("sayOk").hidden = false;
+    });
+  };
+}
+
 /* ---- chopping ---- */
 function tryChop(a, b, tapX){
   const c = G.chop; if(!c || G.phase !== "play") return;
@@ -1050,7 +1203,11 @@ function tryChop(a, b, tapX){
 function completeQuestion(){
   G.phase = "done"; G.doneAt = performance.now();
   const q = G.q, first = G.mistakes === 0;
-  recordSkill(q.skill, first);
+  if(!q.selfCheck) recordSkill(q.skill, first);
+  if(q.kind === "sort" && S.settings.say !== false){
+    const pickW = G.sayPick && sortBins(G.sayPick).length === 1 ? G.sayPick : pick(q.items.filter(i => i.bins.length === 1)).label;
+    R.queue.unshift({q:qSay(pickW), tag:"say"});
+  }
   R.done++; if(first) R.first++;
   (R.log[q.skill] = R.log[q.skill] || {n:0, ok:0}).n++; if(first) R.log[q.skill].ok++;
   if(first){ R.score += 25; }
@@ -1087,6 +1244,11 @@ cv.addEventListener("pointerdown", e => {
   audioInit(); if(AC && AC.state === "suspended") AC.resume();
   if(G.phase === "done" && performance.now() - G.doneAt > 500 && G.mistakes === 0){ goNext(); return; }
   P.down = true; P.id = e.pointerId; P.x = P.sx = e.clientX; P.y = P.sy = e.clientY; P.moved = 0; P.cutSet = new Set(); P.swished = false;
+  if(G.q && G.q.kind === "sort" && G.phase === "play"){
+    const bi = binAt(P.x, P.y);
+    if(bi >= 0){ const it = G.grab || G.items.find(i => i.state === "fly" && !i.sliced && !i.leaving); if(it) sortInto(it, bi); P.down = false; return; }
+    const it = itemAt(P.x, P.y); if(it){ G.grab = it; it.grabbed = true; }
+  }
   G.trail = [{x:P.x, y:P.y, t:performance.now()}];
   try{ cv.setPointerCapture(e.pointerId); }catch(_){}
 });
@@ -1099,11 +1261,22 @@ cv.addEventListener("pointermove", e => {
     P.moved += d; P.x = b.x; P.y = b.y;
     G.trail.push({x:b.x, y:b.y, t:performance.now()});
     if(P.moved > 40 && !P.swished){ P.swished = true; SFX.swish(); }
+    if(G.q && G.q.kind === "sort" && G.phase === "play"){
+      if(!G.grab){ const it = G.items.find(i => i.state === "fly" && !i.sliced && !i.leaving && hitItem(i, a, b)); if(it){ G.grab = it; it.grabbed = true; } }
+      if(G.grab){ G.grab.x = b.x; G.grab.y = b.y; G.hoverBin = b.y > H*0.6 ? clamp(Math.floor(b.x/(W/4)), 0, 3) : -1; }
+      continue;
+    }
     if(P.moved > 10){ trySlice(a, b); tryChop(a, b); }
   }
 });
 function endPointer(e){
   if(!P.down || e.pointerId !== P.id) return; P.down = false;
+  if(G.grab){
+    const it = G.grab; G.grab = null; it.grabbed = false;
+    if(e.clientY > H*0.6) sortInto(it, clamp(Math.floor(e.clientX/(W/4)), 0, 3));    // dropped in the bin zone: the column picks the bin
+    else { it.vx = 0; it.vy = 0; G.hoverBin = -1; }                                  // let go up high: it floats down again
+    return;
+  }
   if(P.moved < 10){
     const p = {x:e.clientX, y:e.clientY};
     if(G.q && G.q.kind === "slice") trySlice({x:p.x-1, y:p.y}, {x:p.x+1, y:p.y});
@@ -1123,17 +1296,20 @@ function update(dt){
   // items
   let flying = 0;
   for(const it of G.items){
+    if(it.state === "sorting"){ it.sortT += dt; it.x += (it.tx - it.x)*Math.min(1, dt*12); it.y += (it.ty - it.y)*Math.min(1, dt*12); if(it.sortT > 0.35) it.state = "gone"; continue; }
+    if(it.grabbed){ flying++; continue; }
     if(it.state === "fly"){
       if(!it.sliced && !it.leaving) flying++;
       it.vy += it.g*dt; it.x += it.vx*dt; it.y += it.vy*dt; it.rot += it.vr*dt;
       if(it.leaving){ it.alpha = (it.alpha == null ? 1 : it.alpha) - dt*2.5; if(it.alpha <= 0) it.state = "gone"; }
       if(it.vy > 0 && it.y - it.hh > H + 10){
         it.state = "gone";
-        if(it.target && !it.sliced && G.phase === "play"){ R.combo = 0; floatText(clamp(it.x, 60, W-60), H - 40, "missed — it'll come back!", "#ffb86b", 18); }
+        if(it.target && !it.sliced && !it.wrongDrop && G.phase === "play"){ R.combo = 0; floatText(clamp(it.x, 60, W-60), H - 40, "missed — it'll come back!", "#ffb86b", 18); }
       }
     }
   }
-  if(G.phase === "play" && G.q && G.q.kind === "slice" && flying < (G.q.perWave || 1)){
+  if(G.binFlash){ G.binFlash.t -= dt; if(G.binFlash.t <= 0) G.binFlash = null; }
+  if(G.phase === "play" && G.q && (G.q.kind === "slice" || G.q.kind === "sort") && flying < (G.q.perWave || 1)){
     G.launchGap -= dt;
     if(G.launchGap <= 0){
       if(!G.launchQ.length) refillLaunchQueue();
@@ -1234,7 +1410,13 @@ function draw(now){
     for(let k=0;k<5;k++){ const a = k*1.3 + s.x, rr = s.r*0.35; ctx.beginPath(); ctx.arc(s.x + Math.cos(a)*s.r*1.1, s.y + Math.sin(a)*s.r*1.1, rr, 0, Math.PI*2); ctx.fill(); } }
   ctx.globalAlpha = 1;
   if(G.chop) drawChop(now);
-  for(const it of G.items){ if(it.state !== "fly") continue; ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(it.rot); drawFruit(it, false, it.alpha); ctx.restore(); }
+  if(G.q && G.q.kind === "sort" && G.phase !== "idle") drawBins();
+  for(const it of G.items){
+    if(it.state !== "fly" && it.state !== "sorting") continue;
+    ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(it.grabbed ? 0 : it.rot);
+    if(it.state === "sorting"){ const k = Math.max(0.05, 1 - it.sortT*2.4); ctx.scale(k, k); }
+    else if(it.grabbed) ctx.scale(1.1, 1.1);
+    drawFruit(it, false, it.alpha); ctx.restore(); }
   for(const b of G.bits){
     ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.rot);
     ctx.beginPath(); const big = Math.max(b.it.hw, b.it.hh)*2.2; ctx.rotate(b.ang + Math.PI/2);
@@ -1266,6 +1448,7 @@ function renderHud(entry){
   const q = entry.q;
   const tag = entry.tag === "warm" ? `<span class="warm">🔥 WARM-UP REVIEW · ${skillTopicName(q.skill)}</span>`
             : entry.tag === "chain" ? `<span class="chain">🔗 ${esc(entry.chain)} · STEP ${entry.step} OF ${entry.of}</span>`
+            : entry.tag === "say" ? `<span class="chain">🎤 SAY IT · ${SKILLS[q.skill].name}</span>`
             : entry.tag === "mix" ? `🎲 MIXED REVIEW · ${SKILLS[q.skill].name}` : SKILLS[q.skill].name.toUpperCase();
   $("tag").innerHTML = tag;
   $("prompt").innerHTML = q.prompt;
@@ -1314,6 +1497,7 @@ function hideScreens(){ $("home").classList.add("hidden"); closeModal(); }
 function openModal(html){ $("panel").innerHTML = html; $("modal").classList.remove("hidden"); $("panel").scrollTop = 0; }
 function closeModal(){ $("modal").classList.add("hidden"); }
 function goHome(){
+  document.body.classList.remove("sorting");
   R = null; G.phase = "idle"; G.items = []; G.chop = null; G.q = null; hideToast();
   $("hud").classList.add("hidden"); closeModal(); renderMap(); $("home").classList.remove("hidden");
 }
@@ -1388,7 +1572,9 @@ const LESSONS = {
       <p><b>OU, OW</b> → "ow!": pr<b>ou</b>d, b<b>ou</b>nce, p<b>ow</b>er, sh<b>ow</b>er</p>
       <p><b>OI, OY</b> → "oy": av<b>oi</b>d, app<b>oi</b>nt, enj<b>oy</b>, ann<b>oy</b></p></div>
       <div class="box"><p><b>Tips:</b> OY at the end, OI in the middle. OU in the middle, OW at the end or before N, L, ER.</p>
-      <p><b>OW has two sounds!</b> sn<b>ow</b> (long O, Week 4) and c<b>ow</b> (diphthong).</p></div>`
+      <p><b>OW has two sounds!</b> sn<b>ow</b> (long O, Week 4) and c<b>ow</b> (diphthong).</p></div>
+      <div class="box"><p>🧺 <b>Sort it:</b> drag each word into its bin — OW, OU, OI or OY. Some words have two, like c<b>ow</b>b<b>oy</b>!</p>
+      <p>🎤 <b>Say it:</b> OI and OY say <b>"oy"</b> (boy). OU and OW say <b>"ow"</b> (cow).</p></div>`
 };
 function showLesson(id){
   const t = TOPIC[id]; S.tips["learn_"+id] = 1; save();
@@ -1451,6 +1637,7 @@ function showSettings(){
     <div class="setlbl">FLYING SPEED (more time to think = Chill)</div>${seg("pace", [["chill","🐢 Chill"],["normal","🙂 Normal"],["quick","⚡ Quick"]])}
     <div class="setlbl">SOUND EFFECTS</div>${seg("sound", [[true,"On"],[false,"Off"]])}
     <div class="setlbl">READ WORDS ALOUD (spelling questions)</div>${seg("voice", [[true,"On"],[false,"Off"]])}
+    <div class="setlbl">SAY-IT PRACTICE (uses the microphone)</div>${seg("say", [[true,"On"],[false,"Off"]])}
     <div class="setlbl">GROWN-UPS: UNLOCK ALL TOPICS</div>${seg("unlockAll", [[false,"Normal path"],[true,"Unlock all"]])}
     <div class="setlbl">PROGRESS</div><button class="ghost" id="resetBtn">Reset all progress</button>
     <button class="play big" id="setDone">DONE</button>`);
@@ -1478,6 +1665,10 @@ window.__selfTest = function(n){
       if(!q.ctx || q.ctx.t !== "word" && q.ctx.t !== "sent"){ const labs = q.items.map(i => i.label); if(uniq(labs).length !== labs.length) errs.push(`${where}: dup labels ${labs}`); }
       if(q.items.some(i => NO_FRUIT.has(String(i.label).toLowerCase()))) errs.push(`${where}: conjunction/interjection fruit`);
       if(q.items.some(i => !i.target && !i.why)) errs.push(`${where}: missing why for ${q.items.filter(i => !i.target && !i.why).map(i => i.label)}`);
+    } else if(q.kind === "sort"){
+      if(q.items.some(i => !i.bins.length || i.bins.some(b => !SORT_BINS.includes(b)))) errs.push(`${where}: unsortable word`);
+    } else if(q.kind === "say"){
+      if(!SOUND[q.team] || !q.word.includes(q.team)) errs.push(`${where}: bad say ${q.word}/${q.team}`);
     } else {
       if(!q.cuts.length || q.cuts.some(c => c < 1 || c >= q.word.length)) errs.push(`${where}: bad cuts ${q.word} ${q.cuts}`);
     }
@@ -1486,6 +1677,10 @@ window.__selfTest = function(n){
   for(const id in GEN) for(let i=0;i<n;i++){ try{ chk(GEN[id](), id); }catch(e){ errs.push(`${id}: ${e.message}`); } }
   const ok = () => true;
   for(const id in CHAINS) for(let i=0;i<n;i++){ try{ CHAINS[id](ok).steps.forEach((q,k) => chk(q, `chain ${id}#${k}`)); }catch(e){ errs.push(`chain ${id}: ${e.message}`); } }
+  SORT_WORDS.forEach(w => { if(!sortBins(w).length) errs.push(`sort word without diphthong: ${w}`); });
+  [[["oy"],"oi","boil","right"],[["boy"],"oy","enjoy","right"],[["ow"],"ou","proud","right"],[["oh"],"ow","power","wrong"],
+   [["boiling"],"oi","boiling","right"],[["how"],"oi","coin","wrong"],[["banana"],"ou","loud","unclear"]].forEach(([a,t,w,want]) => {
+    const got = judgeSound(a, t, w).res; if(got !== want) errs.push(`judgeSound(${a},${t}) = ${got}, want ${want}`); });
   VCCV.forEach(e => { const c = codeOf(e.w); if(c.slice(e.cut-2, e.cut+2) !== "VCCV") errs.push(`VCCV ${e.w} ${c}`); });
   VCV_WORDS.forEach(w => { if(codeOf(w).includes("VCCV")) errs.push(`VCV list has VCCV: ${w}`); });
   INFL.forEach(e => { if(inflWrong(e).length < 2) errs.push(`infl distractors ${e.res}`); });

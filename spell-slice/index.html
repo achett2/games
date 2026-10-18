@@ -192,7 +192,7 @@
    nouns/verbs) + Unit 1 (VC/CV, inflected endings, base words, vowel
    digraphs, diphthongs). Mastery per skill lives in localStorage.
    ===================================================================== */
-const BUILD = "v9";
+const BUILD = "v10";
 const $ = id => document.getElementById(id);
 const rnd = n => Math.floor(Math.random()*n);
 const pick = a => a[rnd(a.length)];
@@ -261,6 +261,41 @@ const SP_SENTS = [
   const subj = plain(a), pred = plain(b).replace(/[.!?]$/, ""), words = (subj + " " + plain(b)).split(" ");
   return {src, tagged:src.replace(" | ", " "), subj, pred, words, cut:subj.split(" ").length};
 });
+// ---------- Social Studies vocab (editable list; these are the defaults from class) ----------
+const SS_DEFAULT = [
+  {w:"Cardinal Directions", d:"one of the four main directions: North, South, East, West"},
+  {w:"Symbol", d:"an object that stands for something else (the Liberty Bell stands for freedom)"},
+  {w:"Map Key", d:"a feature that explains what the symbols on a map stand for"},
+  {w:"Scale", d:"a feature used to figure out distances on a map"},
+  {w:"Canyon", d:"a deep, narrow valley with steep hills"}
+];
+// Built-in extras for known words: an example sentence (word replaced by a blank) and a picture.
+const SS_PIC = {
+  compass:`<svg viewBox="0 0 120 120" width="120" height="120"><circle cx="60" cy="60" r="44" fill="#1d2b55" stroke="#7aa8ff" stroke-width="3"/>
+    <polygon points="60,18 68,60 60,102 52,60" fill="#ffd24a"/><polygon points="18,60 60,52 102,60 60,68" fill="#fff"/>
+    <g font-family="Bangers" font-size="20" fill="#fff" text-anchor="middle"><text x="60" y="15">N</text><text x="60" y="118">S</text><text x="112" y="67">E</text><text x="8" y="67">W</text></g></svg>`,
+  bell:`<svg viewBox="0 0 140 120" width="140" height="120"><path d="M45 25 Q70 5 95 25 L105 85 L35 85 Z" fill="#c9893a" stroke="#6b4214" stroke-width="3"/>
+    <path d="M70 30 L66 60 L74 70 L70 85" stroke="#4a2a0a" stroke-width="3" fill="none"/><rect x="30" y="85" width="80" height="10" rx="4" fill="#8a5a22"/>
+    <circle cx="70" cy="102" r="8" fill="#6b4214"/><text x="70" y="22" font-size="11" text-anchor="middle" fill="#fff7ea" font-weight="800">LIBERTY</text></svg>`,
+  key:`<svg viewBox="0 0 160 120" width="160" height="120"><rect x="6" y="6" width="148" height="108" rx="10" fill="#fff7ea" stroke="#6a50c0" stroke-width="3"/>
+    <text x="80" y="28" font-family="Bangers" font-size="20" text-anchor="middle" fill="#2a1b52">MAP KEY</text>
+    <g font-size="16" fill="#2a1b52" font-weight="800"><text x="20" y="54">🌲  forest</text><text x="20" y="78">⛺  camp</text><text x="20" y="102">🏠  house</text></g></svg>`,
+  scale:`<svg viewBox="0 0 230 80" width="230" height="80"><g stroke="#fff" stroke-width="3"><line x1="20" y1="40" x2="180" y2="40"/>
+    <line x1="20" y1="30" x2="20" y2="50"/><line x1="100" y1="30" x2="100" y2="50"/><line x1="180" y1="30" x2="180" y2="50"/></g>
+    <rect x="20" y="36" width="80" height="8" fill="#ffd24a"/><g font-size="14" fill="#fff" text-anchor="middle" font-weight="800">
+    <text x="20" y="68">0</text><text x="100" y="68">10</text><text x="180" y="68">20 miles</text></g></svg>`,
+  canyon:`<svg viewBox="0 0 200 120" width="200" height="120"><rect width="200" height="120" fill="#7ec8ff" rx="10"/>
+    <polygon points="0,20 70,20 88,120 0,120" fill="#c2622d"/><polygon points="200,15 128,15 112,120 200,120" fill="#a84f22"/>
+    <polygon points="70,20 80,60 88,120 85,120" fill="#8a3d18"/><path d="M88 112 Q100 104 112 112 L112 120 L88 120 Z" fill="#2b7bd6"/></svg>`
+};
+const SS_BUILTIN = {
+  "cardinal directions":{s:"North, South, East, and West are the four ____.", pic:"compass"},
+  "symbol":{s:"The Liberty Bell is a ____ that stands for freedom.", pic:"bell"},
+  "map key":{s:"Look at the ____ to find out what each symbol on the map means.", pic:"key"},
+  "scale":{s:"Use the map's ____ to figure out how many miles it is to the lake.", pic:"scale"},
+  "canyon":{s:"The river carved a deep, narrow ____ with steep walls.", pic:"canyon"}
+};
+const ssKey = w => w.toLowerCase().trim();
 // Conjunctions and interjections stay in the sentence but never fly up as fruit.
 const NO_FRUIT = new Set(["and","but","or","so","because","yet","nor","boo","wow","oh","hey","ouch","yay","oops","uh","um","eek","yikes","whoa"]);
 // Same word, different job (noun vs verb depends on the sentence).
@@ -437,6 +472,11 @@ const SKILLS = {
   diph_choose:{name:"ou/ow · oi/oy", tip:"OI in the middle, OY at the end. OU in the middle, OW at the end."},
   ow_sound:{name:"Two sounds of OW", tip:"OW says long O in SNOW but OW! in COW."},
   diph_spell:{name:"Spell Week 5 words", tip:"Spell the diphthong words."},
+  ss_match:{name:"Meaning → word", tip:"Read the meaning, slice the vocab word."},
+  ss_meaning:{name:"Word → meaning", tip:"See the word, slice what it means."},
+  ss_blank:{name:"Vocab in a sentence", tip:"Pick the vocab word that fits the sentence."},
+  ss_picture:{name:"Picture clues", tip:"Match each picture to its vocab word."},
+  ss_map:{name:"Use the map", tip:"Use the compass rose, map key and scale on a real map."},
   sp_subject:{name:"Find the subject", tip:"The SUBJECT tells WHO or WHAT the sentence is about."},
   sp_predicate:{name:"Find the predicate", tip:"The PREDICATE tells what the subject DOES. It starts with the verb."},
   sp_chop:{name:"Chop subject | predicate", tip:"Chop the sentence right before the verb."},
@@ -452,8 +492,10 @@ const TOPICS = [
   {id:"w2", unit:"U", wk:2, icon:"➕", name:"Inflected Endings", stages:["infl_add","infl_s_es","infl_rule"], warm:["v_sent","n_list","v_list","vc_pattern"], chains:["dbl"]},
   {id:"w3", unit:"U", wk:3, icon:"🪓", name:"Base Words + Endings", stages:["base_chop","end_pick","base_pick"], warm:["v_sent","n_sent","nv_tricky","infl_add"], chains:["base","why"]},
   {id:"w4", unit:"U", wk:4, icon:"👯", name:"Vowel Digraphs", stages:["team_find","team_choose","team_spell"], warm:["v_word","v_letter","vc_code"], chains:["team"]},
+  {id:"ss", unit:"S", icon:"🗺️", name:"Social Studies: Map Words", stages:["ss_match","ss_meaning","ss_blank","ss_picture","ss_map"], warm:[], chains:["ssc"], open:true},
   {id:"w5", unit:"U", wk:5, icon:"🎢", name:"Diphthongs", stages:["diph_find","diph_sort","diph_choose","ow_sound","diph_spell"], warm:["v_word","team_find","team_choose"], chains:["diph"]}
 ];
+{ const i = TOPICS.findIndex(t => t.id === "ss"); TOPICS.push(TOPICS.splice(i, 1)[0]); }   // Social Studies goes last on the map
 const TOPIC = {}; TOPICS.forEach(t => TOPIC[t.id] = t);
 const FOUNDATION_SKILLS = [...TOPIC.vc.stages, ...TOPIC.nv.stages, ...TOPIC.sp.stages];
 
@@ -475,6 +517,7 @@ function recordSkill(id, firstTry){
 function need(id){ const s = sk(id); return 0.35 + (1 - s.m)*2 + s.rm*0.8; }   // selection weight: weaker → more often
 function wpick(arr, wf){ const ws = arr.map(wf); let t = ws.reduce((a,b) => a+b, 0)*Math.random(); for(let i=0;i<arr.length;i++){ t -= ws[i]; if(t <= 0) return arr[i]; } return arr[arr.length-1]; }
 function unlocked(){ return true; }   // every topic is open
+function stageOf(t){ return t.open ? t.stages.length - 1 : tp(t.id).stage; }   // open topics (vocab) use every skill right away
 
 /* =====================================================================
    QUESTION GENERATORS
@@ -815,6 +858,103 @@ function qSpComplete(){
     why:"A complete sentence needs both: a subject (who) and a predicate (what they do).", hint:"Does it say WHO and what they DO? Then it's complete."};
 }
 
+// --- Social Studies vocab
+function ssList(){ const L = S.lists && S.lists.ss; return L && L.length >= 3 ? L : SS_DEFAULT; }
+function ssFind(k){ return ssList().find(e => ssKey(e.w) === k); }
+function ssOthers(e, n){ return sample(ssList().filter(x => x !== e), n); }
+function ssSentence(e){ if(e.s) return e.s; const b = SS_BUILTIN[ssKey(e.w)]; return b && b.s; }
+function qSsMatch(e){
+  e = e || wpick(ssList(), x => 1 + (S.ssMiss && S.ssMiss[ssKey(x.w)] || 0));
+  return {kind:"slice", skill:"ss_match", prompt:"Which word means…", ss:e.w,
+    ctx:{t:"text", html:`<div class="clue" style="color:var(--ink)">"${esc(e.d)}"</div>`},
+    items:optsItems(e.w, ssOthers(e, 3).map(x => x.w), w => `${w} means: ${ssList().find(x => x.w === w).d}.`),
+    why:`${e.w}: ${e.d}.`, hint:"Read the meaning again slowly. Which word fits it best?"};
+}
+function qSsMeaning(e){
+  e = e || wpick(ssList(), x => 1 + (S.ssMiss && S.ssMiss[ssKey(x.w)] || 0));
+  return {kind:"slice", skill:"ss_meaning", prompt:`What does <b>${esc(U(e.w))}</b> mean?`, ss:e.w,
+    ctx:null, items:optsItems(e.d, ssOthers(e, 2).map(x => x.d), d => `That one means ${ssList().find(x => x.d === d).w}.`),
+    why:`${e.w}: ${e.d}.`, hint:`Think about where you'd see "${e.w}" — on a map? In nature?`};
+}
+function qSsBlank(e){
+  const pool = ssList().filter(ssSentence);
+  if(!pool.length) return qSsMatch();
+  e = e && ssSentence(e) ? e : pick(pool);
+  const sent = ssSentence(e).includes("____") ? ssSentence(e) : ssSentence(e).replace(new RegExp(e.w, "i"), "____");
+  return {kind:"slice", skill:"ss_blank", prompt:"Fill in the blank", ss:e.w,
+    ctx:{t:"clue", html:esc(sent).replace("____", '<span class="blank"></span>')},
+    items:optsItems(e.w, ssOthers(e, 3).map(x => x.w), w => `"${w}" doesn't fit. ${e.w}: ${e.d}.`),
+    why:`${sent.replace("____", e.w.toLowerCase())} (${e.w}: ${e.d}.)`, hint:"Read the sentence with each word in the blank. Which makes sense?"};
+}
+function qSsPicture(e){
+  const pool = ssList().filter(x => SS_BUILTIN[ssKey(x.w)]);
+  if(pool.length < 1) return qSsMatch();
+  e = e && SS_BUILTIN[ssKey(e.w)] ? e : pick(pool);
+  return {kind:"slice", skill:"ss_picture", prompt:"Which word goes with this picture?", ss:e.w,
+    ctx:{t:"pic", html:SS_PIC[SS_BUILTIN[ssKey(e.w)].pic]},
+    items:optsItems(e.w, ssOthers(e, 3).map(x => x.w), w => `Not ${w}. The picture shows ${e.w.toLowerCase()}: ${e.d}.`),
+    why:`${e.w}: ${e.d}.`, hint:"Look closely at the picture. What is it showing you?"};
+}
+// A tiny map: compass rose, map key and scale bar, with places around a house.
+const SS_PLACES = [["🌲","forest"],["🏞️","lake"],["⛺","camp"],["🏫","school"]];
+const DIRS = {N:"North", S:"South", E:"East", W:"West"};
+function ssMapSVG(spots, opts){
+  opts = opts || {};
+  const pos = {C:[150,95], N:[150,28], S:[150,162], E:[250,95], W:[50,95]};
+  let g = `<svg viewBox="0 0 330 190" width="330" height="190" style="max-width:100%"><rect x="2" y="2" width="326" height="186" rx="12" fill="#e9dcb5" stroke="#6b4214" stroke-width="3"/>`;
+  if(opts.path){ const [x1,y1] = pos.C, [x2,y2] = pos[opts.path.dir], k = opts.path.k;
+    for(let i=0; i<k; i++){ const a = i/k, b = (i+0.82)/k;
+      g += `<line x1="${x1+(x2-x1)*a}" y1="${y1+(y2-y1)*a}" x2="${x1+(x2-x1)*b}" y2="${y1+(y2-y1)*b}" stroke="#c0392b" stroke-width="5" stroke-linecap="round"/>`; } }
+  g += `<text x="${pos.C[0]}" y="${pos.C[1]+9}" font-size="28" text-anchor="middle">🏠</text>`;
+  for(const d in spots) g += `<text x="${pos[d][0]}" y="${pos[d][1]+9}" font-size="26" text-anchor="middle">${spots[d][0]}</text>`;
+  g += `<g transform="translate(286,42)"><circle r="24" fill="#fff7ea" stroke="#6b4214" stroke-width="2"/><polygon points="0,-20 5,0 0,20 -5,0" fill="#c0392b"/>
+        <g font-family="Bangers" font-size="13" text-anchor="middle" fill="#2a1505"><text y="-26">N</text><text y="35">S</text><text x="31" y="5">E</text><text x="-31" y="5">W</text></g></g>`;
+  if(opts.scale) g += `<g transform="translate(14,174)"><line x1="0" y1="0" x2="${opts.scale.px}" y2="0" stroke="#c0392b" stroke-width="5" stroke-linecap="round"/>
+        <text x="${opts.scale.px + 8}" y="5" font-size="13" font-weight="800" fill="#2a1505">= ${opts.scale.miles} miles</text></g>`;
+  if(opts.key) g += `<g transform="translate(10,12)"><rect width="88" height="${18 + 17*opts.key.length}" rx="6" fill="#fff7ea" stroke="#6b4214"/>
+        <text x="44" y="14" font-size="12" font-weight="800" text-anchor="middle" fill="#2a1505">MAP KEY</text>
+        ${opts.key.map((k,i) => `<text x="8" y="${31 + i*17}" font-size="12" font-weight="800" fill="#2a1505">${k[0]} ${k[1]}</text>`).join("")}</g>`;
+  return g + "</svg>";
+}
+function qSsMap(){
+  const L = ssList(), mk = ssFind("map key"), sym = ssFind("symbol"), sc = ssFind("scale"), cd = ssFind("cardinal directions");
+  const kinds = ["dir","dir","dist"]; if(mk) kinds.push("key"); if(sym) kinds.push("sym"); if(cd) kinds.push("card");
+  const kind = pick(kinds);
+  const dirs = shuffle(["N","S","E","W"]), places = shuffle(SS_PLACES), spots = {};
+  dirs.slice(0, 3).forEach((d,i) => spots[d] = places[i]);
+  const keyRows = Object.values(spots).map(p => [p[0], p[1]]);
+  if(kind === "dir"){
+    const d = dirs[rnd(3)], [emo, nm] = spots[d];
+    return {kind:"slice", skill:"ss_map", prompt:`Which way is the ${emo} ${nm} from the 🏠?`, ctx:{t:"pic", html:ssMapSVG(spots, {key:keyRows})},
+      items:optsItems(DIRS[d], Object.keys(DIRS).filter(x => x !== d).map(x => DIRS[x]), w => `Use the compass rose: N is up, S is down, E is right, W is left. The ${nm} is ${DIRS[d].toUpperCase()} of the house.`),
+      why:`The ${nm} is ${DIRS[d]} of the house. North is up, South is down, East is right, West is left.`, hint:"Find the compass rose (the N-E-S-W circle). Never Eat Soggy Waffles goes clockwise: N, E, S, W."};
+  }
+  if(kind === "dist"){
+    const d = dirs[rnd(3)], [emo, nm] = spots[d], k = 2 + rnd(3), miles = pick([5, 10]);
+    const ans = k*miles, wrong = uniq([k, ans + miles, miles, ans - miles].filter(x => x > 0 && x !== ans)).slice(0, 3).map(String);
+    const scaleWord = sc ? sc.w : "scale";
+    return {kind:"slice", skill:"ss_map", prompt:`How many miles from 🏠 to the ${emo} ${nm}?`, ctx:{t:"pic", html:ssMapSVG(spots, {path:{dir:d, k}, scale:{px:((d === "N" || d === "S") ? 67 : 100)/k*0.82, miles}})},
+      items:optsItems(String(ans), wrong, () => `Count the red pieces of the path: ${k}. The ${scaleWord.toLowerCase()} says each piece = ${miles} miles. ${k} × ${miles} = ${ans}.`),
+      why:`${k} pieces × ${miles} miles = ${ans} miles. The ${scaleWord.toLowerCase()} helps you figure out distances!`, hint:`Each red piece is ${miles} miles (look at the ${scaleWord.toLowerCase()} in the corner). Count the pieces.`};
+  }
+  if(kind === "key"){
+    const p = places[0];
+    return {kind:"slice", skill:"ss_map", prompt:`Which part of the map tells you ${p[0]} means ${p[1]}?`, ctx:{t:"pic", html:ssMapSVG(spots, {key:keyRows, scale:{px:22, miles:10}})},
+      items:optsItems(mk.w, ssOthers(mk, 3).map(x => x.w), w => `The ${mk.w} explains what the symbols on a map stand for.`),
+      why:`The ${mk.w} (the box in the corner) explains what each symbol means.`, hint:"Look for the box that lists the little pictures."};
+  }
+  if(kind === "sym"){
+    const p = places[1];
+    return {kind:"slice", skill:"ss_map", prompt:`On the map, ${p[0]} stands for ${p[1]}. The ${p[0]} is a…`, ctx:{t:"pic", html:ssMapSVG(spots, {key:keyRows})},
+      items:optsItems(sym.w, ssOthers(sym, 3).map(x => x.w), () => `${p[0]} stands for something else (${p[1]}), so it's a ${sym.w.toLowerCase()}.`),
+      why:`${p[0]} is a ${sym.w.toLowerCase()} — it stands for ${p[1]}, just like the Liberty Bell stands for freedom.`, hint:"Something that STANDS FOR something else is called a…"};
+  }
+  const wrong = sample(["Left","Right","Up","Down","Map","Middle"], 3);
+  return {kind:"slice", skill:"ss_map", prompt:`Slice the 4 <b>${esc(U(cd.w))}</b>`, ctx:{t:"pic", html:SS_PIC.compass},
+    items:shuffle([...["North","South","East","West"].map(w => ({label:w, target:true})), ...wrong.map(w => ({label:w, target:false, why:`${w} isn't a cardinal direction. The four are North, South, East, West.`}))]),
+    why:"The cardinal directions are North, South, East, and West.", hint:"There are exactly 4, and they're on the compass rose."};
+}
+
 /* ---------- skill → generator ---------- */
 const GEN = {
   v_letter:qVLetter, c_letter:qCLetter, v_word:() => qVWord(), c_word:() => qCWord(), vc_code:() => qVCCode(), vc_pattern:() => qVCPattern(),
@@ -826,6 +966,7 @@ const GEN = {
   team_find:() => qTeamFind(null, 4), team_choose:() => qTeamChoose(null, 4), team_spell:() => qSpell(null, 4),
   diph_find:() => qTeamFind(null, 5), diph_choose:() => qTeamChoose(null, 5), ow_sound:qOwSound, diph_spell:() => qSpell(null, 5),
   diph_sort:qSort, diph_say:() => qSay(),
+  ss_match:() => qSsMatch(), ss_meaning:() => qSsMeaning(), ss_blank:() => qSsBlank(), ss_picture:() => qSsPicture(), ss_map:qSsMap,
   sp_subject:() => qSpSubject(), sp_predicate:() => qSpPredicate(), sp_chop:() => qSpChop(), sp_complete:qSpComplete
 };
 
@@ -851,6 +992,8 @@ const CHAINS = {
     st.push(Object.assign(qSent(e.tagged, "v"), {why:`${U(v)} is the verb — the predicate starts right there!`}));
     st.push(ok("sp_chop") ? qSpChop(e) : qSpPredicate(e));
     return {label:"SENTENCE", steps:st}; },
+  // one vocab word three ways: meaning → word, word → meaning, then use it
+  ssc(){ const e = pick(ssList()); return {label:U(e.w), steps:[qSsMatch(e), qSsMeaning(e), SS_BUILTIN[ssKey(e.w)] && Math.random() < 0.5 ? qSsPicture(e) : qSsBlank(e)]}; },
   // RABBIT: vowels → V/C → split
   vccv(){ const e = pick(VCCV);
     return {label:U(e.w), steps:[
@@ -902,7 +1045,7 @@ const CHAINS = {
 let R = null;   // current round
 function availableSkillsForMix(){
   const out = [];
-  TOPICS.forEach(t => { const p = tp(t.id); t.stages.slice(0, p.stage+1).forEach(s => out.push(s)); });
+  TOPICS.forEach(t => t.stages.slice(0, stageOf(t)+1).forEach(s => out.push(s)));
   return out;
 }
 function startRound(mode, topicId){
@@ -915,7 +1058,7 @@ function startRound(mode, topicId){
 }
 function okFn(){
   if(R.mode === "mix") { const av = availableSkillsForMix(); return id => av.includes(id); }
-  const t = TOPIC[R.topicId], st = tp(t.id).stage;
+  const t = TOPIC[R.topicId], st = stageOf(t);
   return id => !t.stages.includes(id) || t.stages.indexOf(id) <= st;
 }
 function refill(){
@@ -936,7 +1079,7 @@ function refill(){
     if(chainIds.length && Math.random() < 0.3){ return pushChain(pick(chainIds), ok); }
     const s = wpick(av, need); R.queue.push({q:GEN[s](), tag:"mix"}); return;
   }
-  const st = tp(t.id).stage;
+  const st = stageOf(t);
   if(t.chains.length && Math.random() < (t.unit === "U" ? 0.4 : 0.25) && (st >= 1 || t.unit === "U")) return pushChain(pick(t.chains), ok);
   const pool = t.stages.slice(0, st+1);
   const s = wpick(pool, id => need(id) * (id === t.stages[st] ? 2.2 : 1));
@@ -1010,8 +1153,16 @@ function hudBottom(){ const h = $("hud"); return h.classList.contains("hidden") 
 function measureItem(it){
   const short = it.label.length <= 2;
   if(short){ const r = clamp(Math.min(W,H)/10.5, 28, 44); it.r = r; it.hw = r; it.hh = r; it.font = `${Math.round(r*1.15)}px Bangers`; }
-  else { let fs = clamp(Math.min(W,H)/17, 20, 30); ctx.font = `800 ${fs}px "Baloo 2"`; let tw = ctx.measureText(it.label).width;
-         while(tw + fs*1.6 > W - 24 && fs > 13){ fs--; ctx.font = `800 ${fs}px "Baloo 2"`; tw = ctx.measureText(it.label).width; }
+  else { it.lines = null; let fs = clamp(Math.min(W,H)/17, 20, 30); ctx.font = `800 ${fs}px "Baloo 2"`; let tw = ctx.measureText(it.label).width;
+         while(tw + fs*1.6 > W - 24 && fs > 17){ fs--; ctx.font = `800 ${fs}px "Baloo 2"`; tw = ctx.measureText(it.label).width; }
+         if(tw + fs*1.6 > W - 24){
+           // too long for one line: split near the middle into two lines
+           const ws = it.label.split(" "); let best = null;
+           for(let k=1; k<ws.length; k++){ const a = ws.slice(0,k).join(" "), b = ws.slice(k).join(" ");
+             const m = Math.max(ctx.measureText(a).width, ctx.measureText(b).width); if(!best || m < best.m) best = {a, b, m}; }
+           while(best && best.m + fs*1.6 > W - 24 && fs > 12){ fs--; ctx.font = `800 ${fs}px "Baloo 2"`; best.m = Math.max(ctx.measureText(best.a).width, ctx.measureText(best.b).width); }
+           if(best){ it.lines = [best.a, best.b]; it.hh = fs*1.55; it.hw = best.m/2 + fs*0.9; it.font = `800 ${fs}px "Baloo 2"`; it.lineGap = fs*1.1; return; }
+         }
          it.hh = fs*0.95; it.hw = Math.max(tw/2 + fs*0.8, it.hh*1.4); it.font = `800 ${fs}px "Baloo 2"`; }
 }
 // One fruit at a time: each fruit rises to the middle of the play area and falls back down.
@@ -1281,6 +1432,7 @@ function completeQuestion(){
   G.phase = "done"; G.doneAt = performance.now();
   const q = G.q, first = G.mistakes === 0;
   if(!q.selfCheck) recordSkill(q.skill, first);
+  if(q.ss){ S.ssMiss = S.ssMiss || {}; const k = ssKey(q.ss); S.ssMiss[k] = first ? Math.max(0, (S.ssMiss[k] || 0) - 1) : Math.min(4, (S.ssMiss[k] || 0) + 2); }
   if(q.kind === "sort" && S.settings.say !== false){
     const pickW = G.sayPick && sortBins(G.sayPick).length === 1 ? G.sayPick : pick(q.items.filter(i => i.bins.length === 1)).label;
     R.queue.unshift({q:qSay(pickW), tag:"say"});
@@ -1310,7 +1462,7 @@ function goNext(){
 function maybeAdvanceStage(){
   if(R.mode !== "topic") return;
   const t = TOPIC[R.topicId], p = tp(t.id);
-  if(p.stage >= t.stages.length - 1) return;
+  if(t.open || p.stage >= t.stages.length - 1) return;
   const cur = sk(t.stages[p.stage]);
   if(cur.m >= 0.55 && cur.n >= 3){ p.stage++; p.stageRounds = 0; R.newStage = t.stages[p.stage]; }
 }
@@ -1440,7 +1592,8 @@ function drawFruit(it, gray, alpha){
   ctx.font = it.font; ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.lineWidth = 5; ctx.strokeStyle = "rgba(0,0,0,.55)"; ctx.lineJoin = "round";
   const ty = it.label.length <= 2 ? 3 : 2;
-  ctx.strokeText(it.label, 0, ty); ctx.fillStyle = "#fff"; ctx.fillText(it.label, 0, ty);
+  if(it.lines){ it.lines.forEach((ln, k) => { const yy = ty + (k - 0.5)*it.lineGap; ctx.strokeText(ln, 0, yy); ctx.fillStyle = "#fff"; ctx.fillText(ln, 0, yy); }); }
+  else { ctx.strokeText(it.label, 0, ty); ctx.fillStyle = "#fff"; ctx.fillText(it.label, 0, ty); }
   ctx.restore();
 }
 function drawChop(now){
@@ -1541,6 +1694,8 @@ function renderCtx(q){
     box.innerHTML = `<div class="tiles">${[...c.w].map((l,i) => `<div class="tile ${c.pre === "v" && isV(l) ? "v" : ""}" data-i="${i}"><div class="L">${esc(l)}</div><div class="C ${isV(l) ? "V" : "Cc"}">${isV(l) ? "V" : "C"}</div></div>`).join("")}</div>`;
   } else if(c.t === "sent"){
     box.innerHTML = `<div class="sent">${c.toks.map((t,i) => `<span class="w ${i === c.hl ? "hl" : ""}" data-i="${i}" ${t.tag ? `data-t="${t.tag === "a" ? "ADJ" : TAG_NAME[t.tag]}"` : ""}>${esc(t.w)}${esc(t.p)}</span>`).join("")}</div>`;
+  } else if(c.t === "pic"){
+    box.innerHTML = `<div style="display:flex; justify-content:center; margin-top:4px">${c.html}</div>`;
   } else if(c.t === "text"){
     box.innerHTML = `<div style="font-weight:800;font-size:17px;color:var(--dim)">${c.html}</div>`;
   } else if(c.t === "clue"){
@@ -1585,14 +1740,15 @@ function renderMap(){
   let h = `<div class="sect">FOUNDATIONS</div>`;
   TOPICS.forEach((t,i) => {
     if(t.unit === "U" && TOPICS[i-1].unit === "F") h += `<div class="arrow">▼</div><div class="sect">UNIT 1</div>`;
-    else if(i > 0) h += `<div class="arrow">▼</div>`;
+    else if(t.unit === "S" && TOPICS[i-1].unit !== "S") h += `<div class="sect">SOCIAL STUDIES</div>`;
+    else if(i > 0 && t.unit !== "S") h += `<div class="arrow">▼</div>`;
     const p = tp(t.id), un = unlocked(i), m = topicMastery(t);
     h += `<div class="card ${un ? "" : "locked"}">
       <div class="ic">${t.icon}</div>
-      <div class="mid"><div class="wk">${t.unit === "F" ? "FOUNDATION "+(i+1) : "WEEK "+t.wk}</div><div class="nm">${t.name}</div>
+      <div class="mid"><div class="wk">${t.unit === "F" ? "FOUNDATION "+(i+1) : t.unit === "S" ? `VOCAB · ${ssList().length} WORDS` : "WEEK "+t.wk}</div><div class="nm">${t.name}</div>
         <div class="bar"><i style="width:${m}%"></i></div>
-        <div class="meta"><span class="stars">${starStr(p.stars)}</span> · skill ${Math.min(p.stage+1, t.stages.length)}/${t.stages.length} · ${m}% mastery</div></div>
-      <div class="btns">${un ? `<button class="play" data-play="${t.id}">PLAY</button><button class="ghost" data-learn="${t.id}">📖 Learn</button>` : `<div style="font-size:26px">🔒</div>`}</div>
+        <div class="meta"><span class="stars">${starStr(p.stars)}</span> · skill ${Math.min(stageOf(t)+1, t.stages.length)}/${t.stages.length} · ${m}% mastery</div></div>
+      <div class="btns">${un ? `<button class="play" data-play="${t.id}">PLAY</button><button class="ghost" data-learn="${t.id}">📖 Learn</button>${t.id === "ss" ? `<button class="ghost" id="ssEdit">✏️ Edit words</button>` : ""}` : `<div style="font-size:26px">🔒</div>`}</div>
     </div>`;
   });
   $("map").innerHTML = h;
@@ -1602,6 +1758,7 @@ function renderMap(){
     <div class="btns"><button class="play" id="mixBtn">PLAY</button></div></div>`;
   $("map").querySelectorAll("[data-play]").forEach(b => b.onclick = () => { const id = b.dataset.play; if(!tp(id).plays && !S.tips["learn_"+id]) showLesson(id); else startRound("topic", id); });
   $("map").querySelectorAll("[data-learn]").forEach(b => b.onclick = () => showLesson(b.dataset.learn));
+  if($("ssEdit")) $("ssEdit").onclick = showSsEditor;
   const mb = $("mixBtn"); if(mb) mb.onclick = () => startRound("mix", null);
   $("hStars").textContent = TOPICS.reduce((a,t) => a + tp(t.id).stars, 0);
   $("hBest").textContent = S.best || 0;
@@ -1623,6 +1780,10 @@ const LESSONS = {
       <p>Test: does it fit in "a ___ dog"? <i>a silly dog</i> ✓</p></div>
       <div class="box"><p><b>Same word, different job:</b> the sentence decides.</p>
       <p>We <span class="vb"><b>RUN</b></span> fast. → verb (action)<br>Dad went for a <span class="nn"><b>RUN</b></span>. → noun (a thing)</p></div>`,
+  ss:() => ssList().map(e => { const b = SS_BUILTIN[ssKey(e.w)];
+      return `<div class="box" style="display:flex; gap:10px; align-items:center">${b ? `<div style="flex:0 0 90px">${SS_PIC[b.pic].replace(/width="\d+" height="\d+"/, 'width="90" height="70"')}</div>` : ""}
+        <div><div class="k">${esc(e.w)}</div><p style="margin:2px 0">${esc(e.d)}</p></div></div>`; }).join("") +
+      `<div class="box"><p>🧭 <b>Never Eat Soggy Waffles</b> — N, E, S, W go around the compass clockwise. North is up!</p></div>`,
   sp:`<div class="box"><p>Every complete sentence has two parts:</p>
       <p><span class="k nn">SUBJECT</span> = <b>WHO or WHAT</b> the sentence is about. It has the noun.</p>
       <p><span class="k vb">PREDICATE</span> = what the subject <b>DOES</b>. It starts with the verb.</p>
@@ -1661,9 +1822,29 @@ const LESSONS = {
       <div class="box"><p>🧺 <b>Sort it:</b> drag each word into its bin — OW, OU, OI or OY. Some words have two, like c<b>ow</b>b<b>oy</b>!</p>
       <p>🎤 <b>Say it:</b> OI and OY say <b>"oy"</b> (boy). OU and OW say <b>"ow"</b> (cow).</p></div>`
 };
+function showSsEditor(){
+  const text = ssList().map(e => `${e.w}: ${e.d}${e.s ? " | " + e.s : ""}`).join("\n");
+  openModal(`<h2>✏️ VOCAB WORDS</h2>
+    <p style="font-size:15px">One word per line: <b>Word: meaning</b>. Optional: add <b>| a sentence using the word</b> for fill-in-the-blank questions.</p>
+    <textarea id="ssText" style="width:100%; height:240px; font:700 15px 'Baloo 2',sans-serif; border-radius:12px; padding:10px; touch-action:auto; -webkit-user-select:text; user-select:text;">${esc(text)}</textarea>
+    <p id="ssErr" style="color:#ffb3bd; font-weight:800; min-height:20px"></p>
+    <button class="play big" id="ssSave">SAVE WORDS</button>
+    <div class="row"><button class="ghost" id="ssReset">Reset to the class list</button><button class="ghost" id="ssCancel">Cancel</button></div>`);
+  $("ssCancel").onclick = closeModal;
+  $("ssReset").onclick = () => { S.lists = S.lists || {}; delete S.lists.ss; S.ssMiss = {}; save(); closeModal(); renderMap(); };
+  $("ssSave").onclick = () => {
+    const rows = $("ssText").value.split("\n").map(l => l.trim()).filter(Boolean).map(l => {
+      const i = l.indexOf(":"); if(i < 1) return null;
+      const w = l.slice(0, i).trim(), rest = l.slice(i+1).split("|"); const d = rest[0].trim(), sn = (rest[1] || "").trim();
+      return w && d ? {w, d, ...(sn ? {s:sn} : {})} : null; });
+    if(rows.some(r => !r)){ $("ssErr").textContent = "Each line needs a word, a colon, then the meaning (Word: meaning)."; return; }
+    if(rows.length < 3){ $("ssErr").textContent = "Please add at least 3 words."; return; }
+    S.lists = S.lists || {}; S.lists.ss = rows; S.ssMiss = {}; save(); closeModal(); renderMap();
+  };
+}
 function showLesson(id){
   const t = TOPIC[id]; S.tips["learn_"+id] = 1; save();
-  openModal(`<div class="lesson"><h2>${t.icon} ${t.name}</h2>${LESSONS[id]}
+  openModal(`<div class="lesson"><h2>${t.icon} ${t.name}</h2>${typeof LESSONS[id] === "function" ? LESSONS[id]() : LESSONS[id]}
     ${t.unit === "U" ? `<p class="how">🔥 Each round starts with 2 quick <b>warm-up review</b> questions from earlier topics.</p>` : ""}
     <p class="how">🎮 Swipe through the right answers (or tap them). Wrong slices break your combo. Missed answers float back up — take your time and think!</p>
     <button class="play big" id="lessonGo">LET'S SLICE!</button><div class="row"><button class="ghost" id="lessonBack">Back</button></div></div>`);
@@ -1762,6 +1943,7 @@ window.__selfTest = function(n){
   for(const id in GEN) for(let i=0;i<n;i++){ try{ chk(GEN[id](), id); }catch(e){ errs.push(`${id}: ${e.message}`); } }
   const ok = () => true;
   for(const id in CHAINS) for(let i=0;i<n;i++){ try{ CHAINS[id](ok).steps.forEach((q,k) => chk(q, `chain ${id}#${k}`)); }catch(e){ errs.push(`chain ${id}: ${e.message}`); } }
+  SS_DEFAULT.forEach(e => { if(!SS_BUILTIN[ssKey(e.w)]) errs.push(`no built-in extras for ${e.w}`); });
   SP_SENTS.forEach(e => { const tk = parseSent(e.tagged); if(!tk.some(t => t.tag === "n") || !tk.some(t => t.tag === "v")) errs.push(`SP sentence needs a noun + verb: ${e.src}`);
     const vi = tk.findIndex(t => t.tag === "v"); if(vi !== e.cut) errs.push(`SP sentence: predicate should start at the verb: ${e.src}`); });
   if(SP_SENTS.filter(SP_CHOP_OK).length < 8) errs.push("too few short subject/predicate sentences to chop");

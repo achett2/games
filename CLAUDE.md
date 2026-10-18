@@ -14,7 +14,7 @@ letters to split it (syllables, base | ending, vowel teams).
 ### Architecture
 - **Everything is in `spell-slice/index.html`** — HTML, CSS, and JS inline. No build step, no framework, no JS deps (Google Fonts only).
 - Sections in the script, in order: utils → CONTENT (word lists) → SKILLS/TOPICS → STATE → QUESTION GENERATORS → CHAINS → ROUND PLANNING → AUDIO/SPEECH → ENGINE (canvas) → HUD → SCREENS → SELF-TEST.
-- **Curriculum = `TOPICS`**: Foundations (`vc` Vowels & Consonants, `nv` Nouns, Verbs & Adjectives, `sp` Subject & Predicate), then Unit 1 weeks `w1`–`w5`. Each topic has ordered `stages` (skill ids), `warm` (foundation skills recycled as 2 warm-up review questions at the start of Unit 1 rounds; Foundation topics have none) and `chains`.
+- **Curriculum = `TOPICS`**: Foundations (`vc` Vowels & Consonants, `nv` Nouns, Verbs & Adjectives, `sp` Subject & Predicate), then Unit 1 weeks `w1`–`w5`, then Social Studies `ss` (vocab). Each topic has ordered `stages` (skill ids), `warm` (foundation skills recycled as 2 warm-up review questions at the start of Unit 1 rounds; Foundation topics have none) and `chains`.
 - **Skills** (`SKILLS`) each have a generator in `GEN`. A question is either
   `{kind:"slice", items:[{label,target,why}], ...}` or `{kind:"chop", word, cuts:[gap indexes], ...}`. A chop with `units:[words]` chops a sentence between words (Subject | Predicate) instead of between letters.
   Every wrong option carries a `why` string, which is shown when it's sliced. `q.why` is the explanation shown on completion.
@@ -34,4 +34,5 @@ letters to split it (syllables, base | ending, vowel teams).
 - Content rules: Y is treated as a consonant in Foundation drills (letter drills and `F1_WORDS` exclude Y). Week 4 `ow` = long O (snow); week 5 `ow` = diphthong (cow), so use `groupOf(t, wk)` / `teamSound(t, wk)`.
 - Sentences (`SENTS`) tag words `{w:n}` noun, `{w:v}` verb, `{w:a}` adjective. Conjunctions and interjections (`NO_FRUIT`: and, but, boo, wow…) stay in the sentence text but never become fruit.
 - Subject & Predicate sentences (`SP_SENTS`) mark the split with ` | ` and use the same n/v/a tags; the self-test checks the predicate starts at the verb.
+- **Social Studies vocab** (`ss`, `open:true` so all its skills are available at once via `stageOf()`): word list is editable from the map card (✏️ Edit words → `S.lists.ss`, lines `Word: meaning | optional sentence`); defaults in `SS_DEFAULT`. `SS_BUILTIN` adds a sentence + SVG picture for known words (cardinal directions, symbol, map key, scale, canyon). `qSsMap` draws a mini-map (compass rose, key, scale) for direction / distance / map-key / symbol questions. Missed words (`S.ssMiss`) come up more often. Long fruit labels (definitions) wrap onto two lines.
 - State: `localStorage["ss_state_v1"]` (skills, topic progress, settings, best score). Settings has "Reset progress".

@@ -150,6 +150,10 @@
   .seg{display:flex; gap:6px;}
   .seg button{flex:1; border:2px solid var(--line); background:var(--card); color:var(--ink); border-radius:12px; padding:8px; font-weight:800; font-size:16px;}
   .seg button.on{border-color:var(--gold); background:rgba(255,210,74,.18); color:var(--gold);}
+  .qopts{display:flex; flex-direction:column; gap:10px; margin-top:12px;}
+  .qopt{border:3px solid var(--line); background:var(--card); color:var(--ink); border-radius:14px; padding:12px 14px; font-weight:800; font-size:19px; text-align:left; line-height:1.25;}
+  .qopt.right{border-color:var(--good); background:rgba(75,227,122,.25);} .qopt.wrong{border-color:var(--bad); background:rgba(255,90,110,.25);}
+  .qopt:disabled{opacity:1; color:var(--ink);}
   .setlbl{font-weight:800; color:var(--dim); letter-spacing:.06em; font-size:14px; margin:14px 0 6px;}
 </style>
 </head>
@@ -192,7 +196,7 @@
    nouns/verbs) + Unit 1 (VC/CV, inflected endings, base words, vowel
    digraphs, diphthongs). Mastery per skill lives in localStorage.
    ===================================================================== */
-const BUILD = "v11";
+const BUILD = "v12";
 const $ = id => document.getElementById(id);
 const rnd = n => Math.floor(Math.random()*n);
 const pick = a => a[rnd(a.length)];
@@ -1864,7 +1868,7 @@ function renderMap(){
       <div class="mid"><div class="wk">${t.unit === "F" ? "FOUNDATION "+(i+1) : t.id === "sw" ? `SPELLING · ${swList().length} WORDS` : t.unit === "S" ? `VOCAB · ${ssList().length} WORDS` : "WEEK "+t.wk}</div><div class="nm">${t.name}</div>
         <div class="bar"><i style="width:${m}%"></i></div>
         <div class="meta"><span class="stars">${starStr(p.stars)}</span> · skill ${Math.min(stageOf(t)+1, t.stages.length)}/${t.stages.length} · ${m}% mastery</div></div>
-      <div class="btns">${un ? `<button class="play" data-play="${t.id}">PLAY</button><button class="ghost" data-learn="${t.id}">📖 Learn</button>${t.id === "ss" ? `<button class="ghost" id="ssEdit">✏️ Edit words</button>` : t.id === "sw" ? `<button class="ghost" id="swEdit">✏️ Edit words</button>` : ""}` : `<div style="font-size:26px">🔒</div>`}</div>
+      <div class="btns">${un ? `<button class="play" data-play="${t.id}">PLAY</button><button class="ghost" data-learn="${t.id}">📖 Learn</button>${t.id === "ss" ? `<button class="ghost" id="ssQuiz">📝 Quiz</button><button class="ghost" id="ssEdit">✏️ Edit words</button>` : t.id === "sw" ? `<button class="ghost" id="swEdit">✏️ Edit words</button>` : ""}` : `<div style="font-size:26px">🔒</div>`}</div>
     </div>`;
   });
   $("map").innerHTML = h;
@@ -1875,6 +1879,7 @@ function renderMap(){
   $("map").querySelectorAll("[data-play]").forEach(b => b.onclick = () => { const id = b.dataset.play; if(!tp(id).plays && !S.tips["learn_"+id]) showLesson(id); else startRound("topic", id); });
   $("map").querySelectorAll("[data-learn]").forEach(b => b.onclick = () => showLesson(b.dataset.learn));
   if($("ssEdit")) $("ssEdit").onclick = showSsEditor;
+  if($("ssQuiz")) $("ssQuiz").onclick = startSsQuiz;
   if($("swEdit")) $("swEdit").onclick = showSwEditor;
   const mb = $("mixBtn"); if(mb) mb.onclick = () => startRound("mix", null);
   $("hStars").textContent = TOPICS.reduce((a,t) => a + tp(t.id).stars, 0);
@@ -1945,6 +1950,70 @@ const LESSONS = {
       <div class="box"><p>🧺 <b>Sort it:</b> drag each word into its bin — OW, OU, OI or OY. Some words have two, like c<b>ow</b>b<b>oy</b>!</p>
       <p>🎤 <b>Say it:</b> OI and OY say <b>"oy"</b> (boy). OU and OW say <b>"ow"</b> (cow).</p></div>`
 };
+/* ---------- Social Studies multiple-choice quiz (test practice, no fruit) ---------- */
+let QZ = null;
+function buildSsQuiz(){
+  const L = ssList(), qs = [];
+  L.forEach(e => {
+    qs.push(Math.random() < 0.5 ? qSsMatch(e) : qSsMeaning(e));
+    const extra = [ssSentence(e) && qSsBlank(e), SS_BUILTIN[ssKey(e.w)] && qSsPicture(e), Math.random() < 0.5 ? qSsMeaning(e) : qSsMatch(e)].filter(Boolean);
+    qs.push(pick(extra));
+  });
+  for(let i=0; i<2; i++){ let q, g = 0; do { q = qSsMap(); } while(q.items.filter(x => x.target).length !== 1 && g++ < 20); if(q.items.filter(x => x.target).length === 1) qs.push(q); }
+  // no two questions with the same prompt + answer; at most 12
+  const seen = new Set(), out = [];
+  const add = q => { if(!q || q.items.filter(x => x.target).length !== 1) return; const k = q.prompt + q.items.find(x => x.target).label; if(seen.has(k)) return; seen.add(k); out.push(q); };
+  qs.forEach(add);
+  const gens = [qSsMatch, qSsMeaning, qSsBlank, qSsPicture, qSsMap];
+  for(let g = 0; out.length < 12 && g < 200; g++) add(pick(gens)(pick(L)));   // top up to 12 different questions
+  return shuffle(out).slice(0, 12);
+}
+function startSsQuiz(){ QZ = {qs:buildSsQuiz(), i:0, right:0, missed:[]}; closeModal(); showQuizQ(); }
+function quizCtx(q){
+  const c = q.ctx; if(!c) return "";
+  if(c.t === "pic") return `<div style="display:flex;justify-content:center;margin:8px 0">${c.html}</div>`;
+  if(c.t === "clue") return `<p class="big-why">${c.html.replace('<span class="blank"></span>', '<span class="blank" style="min-width:90px"></span>')}</p>`;
+  return `<div style="text-align:center;margin:8px 0">${c.html}</div>`;
+}
+function showQuizQ(){
+  const q = QZ.qs[QZ.i], opts = shuffle(q.items.map(x => x.label));
+  openModal(`<div class="quiz"><div style="display:flex;justify-content:space-between;font-weight:800;color:var(--dim)"><span>📝 QUESTION ${QZ.i+1} OF ${QZ.qs.length}</span><span>✓ ${QZ.right}</span></div>
+    <h2 style="font-size:26px;margin-top:8px">${q.prompt}</h2>${quizCtx(q)}
+    <div class="qopts">${opts.map((o,k) => `<button class="qopt" data-k="${k}">${esc(o)}</button>`).join("")}</div>
+    <p id="qFeed" class="big-why" style="min-height:24px"></p>
+    <button class="play big hidden" id="qNext">${QZ.i + 1 < QZ.qs.length ? "NEXT →" : "SEE MY SCORE"}</button>
+    <div class="row"><button class="ghost" id="qQuit">Quit quiz</button></div></div>`);
+  const ans = q.items.find(x => x.target).label;
+  $("qQuit").onclick = () => { QZ = null; closeModal(); };
+  $("panel").querySelectorAll(".qopt").forEach(b => b.onclick = () => {
+    if(QZ.answered) return; QZ.answered = true;
+    const pickd = opts[+b.dataset.k], ok = pickd === ans;
+    $("panel").querySelectorAll(".qopt").forEach(x => { const lab = opts[+x.dataset.k]; if(lab === ans) x.classList.add("right"); else if(x === b) x.classList.add("wrong"); x.disabled = true; });
+    recordSkill(q.skill, ok);
+    if(q.ss){ S.ssMiss = S.ssMiss || {}; const k = ssKey(q.ss); S.ssMiss[k] = ok ? Math.max(0, (S.ssMiss[k] || 0) - 1) : Math.min(4, (S.ssMiss[k] || 0) + 2); }
+    save();
+    if(ok){ QZ.right++; audioInit(); SFX.done(); $("qFeed").innerHTML = `<span style="color:var(--good)">✅ Correct!</span> ${esc(q.why)}`; }
+    else { audioInit(); SFX.wrong(); QZ.missed.push({q, pickd, ans}); $("qFeed").innerHTML = `<span style="color:#ffb3bd">✗ The answer is <b>${esc(ans)}</b>.</span> ${esc(q.why)}`; }
+    $("qNext").classList.remove("hidden");
+  });
+  QZ.answered = false;
+  $("qNext").onclick = () => { QZ.i++; if(QZ.i < QZ.qs.length) showQuizQ(); else showQuizEnd(); };
+}
+function showQuizEnd(){
+  const n = QZ.qs.length, r = QZ.right, pct = Math.round(100*r/n);
+  const words = uniq(QZ.missed.map(m => m.q.ss).filter(Boolean));
+  openModal(`<h2>${pct >= 90 ? "TEST READY! 🌟" : pct >= 70 ? "ALMOST THERE! 💪" : "KEEP PRACTICING! 📚"}</h2>
+    <div class="res-stars">${r} / ${n}</div>
+    ${QZ.missed.length ? `<p style="font-weight:800;color:var(--dim)">Review these:</p>` + QZ.missed.map(m => `<div class="box" style="background:rgba(0,0,0,.25);border:2px solid var(--line);border-radius:12px;padding:8px 10px;margin:6px 0">
+        <div style="font-size:14px;color:var(--dim)">${m.q.prompt.replace(/<[^>]+>/g, "")}</div>
+        <div>✗ <s>${esc(m.pickd)}</s> → ✓ <b>${esc(m.ans)}</b></div></div>`).join("") : `<p class="big-why">Every answer right! 🎉</p>`}
+    <button class="play big" id="qAgain">TAKE IT AGAIN</button>
+    <div class="row">${words.length ? `<button class="ghost" id="qPractice">🍉 Practice missed words</button>` : ""}<button class="ghost" id="qDone">🗺️ Map</button></div>`);
+  if(r > (S.quizBest || 0)) S.quizBest = r; save();
+  $("qAgain").onclick = startSsQuiz;
+  $("qDone").onclick = () => { QZ = null; closeModal(); renderMap(); };
+  if($("qPractice")) $("qPractice").onclick = () => { QZ = null; startRound("topic", "ss"); };
+}
 function showSwEditor(){
   const text = swList().map(e => `${e.syl ? e.syl.join("-") : e.w}${e.s ? " | " + e.s : ""}`).join("\n");
   openModal(`<h2>✏️ SPELLING WORDS</h2>

@@ -196,7 +196,7 @@
    nouns/verbs) + Unit 1 (VC/CV, inflected endings, base words, vowel
    digraphs, diphthongs). Mastery per skill lives in localStorage.
    ===================================================================== */
-const BUILD = "v12";
+const BUILD = "v13";
 const $ = id => document.getElementById(id);
 const rnd = n => Math.floor(Math.random()*n);
 const pick = a => a[rnd(a.length)];
@@ -1868,7 +1868,7 @@ function renderMap(){
       <div class="mid"><div class="wk">${t.unit === "F" ? "FOUNDATION "+(i+1) : t.id === "sw" ? `SPELLING · ${swList().length} WORDS` : t.unit === "S" ? `VOCAB · ${ssList().length} WORDS` : "WEEK "+t.wk}</div><div class="nm">${t.name}</div>
         <div class="bar"><i style="width:${m}%"></i></div>
         <div class="meta"><span class="stars">${starStr(p.stars)}</span> · skill ${Math.min(stageOf(t)+1, t.stages.length)}/${t.stages.length} · ${m}% mastery</div></div>
-      <div class="btns">${un ? `<button class="play" data-play="${t.id}">PLAY</button><button class="ghost" data-learn="${t.id}">📖 Learn</button>${t.id === "ss" ? `<button class="ghost" id="ssQuiz">📝 Quiz</button><button class="ghost" id="ssEdit">✏️ Edit words</button>` : t.id === "sw" ? `<button class="ghost" id="swEdit">✏️ Edit words</button>` : ""}` : `<div style="font-size:26px">🔒</div>`}</div>
+      <div class="btns">${un ? `<button class="play" data-play="${t.id}">PLAY</button><button class="ghost" data-learn="${t.id}">📖 Learn</button>${t.id === "ss" ? `<button class="ghost" id="ssQuiz">📝 Quiz</button><button class="ghost" id="ssEdit">✏️ Edit words</button>` : t.id === "sw" ? `<button class="ghost" id="swQuiz">📝 Quiz</button><button class="ghost" id="swEdit">✏️ Edit words</button>` : ""}` : `<div style="font-size:26px">🔒</div>`}</div>
     </div>`;
   });
   $("map").innerHTML = h;
@@ -1879,7 +1879,8 @@ function renderMap(){
   $("map").querySelectorAll("[data-play]").forEach(b => b.onclick = () => { const id = b.dataset.play; if(!tp(id).plays && !S.tips["learn_"+id]) showLesson(id); else startRound("topic", id); });
   $("map").querySelectorAll("[data-learn]").forEach(b => b.onclick = () => showLesson(b.dataset.learn));
   if($("ssEdit")) $("ssEdit").onclick = showSsEditor;
-  if($("ssQuiz")) $("ssQuiz").onclick = startSsQuiz;
+  if($("ssQuiz")) $("ssQuiz").onclick = () => startQuiz("ss");
+  if($("swQuiz")) $("swQuiz").onclick = () => startQuiz("sw");
   if($("swEdit")) $("swEdit").onclick = showSwEditor;
   const mb = $("mixBtn"); if(mb) mb.onclick = () => startRound("mix", null);
   $("hStars").textContent = TOPICS.reduce((a,t) => a + tp(t.id).stars, 0);
@@ -1968,29 +1969,55 @@ function buildSsQuiz(){
   for(let g = 0; out.length < 12 && g < 200; g++) add(pick(gens)(pick(L)));   // top up to 12 different questions
   return shuffle(out).slice(0, 12);
 }
-function startSsQuiz(){ QZ = {qs:buildSsQuiz(), i:0, right:0, missed:[]}; closeModal(); showQuizQ(); }
+function buildSwQuiz(){
+  const L = swList(), out = [];
+  // every word: hear it, pick the right spelling (4 choices)
+  const swapped = w => uniq([...Array(Math.max(0, w.length - 2)).keys()].map(i => i + 1).map(i => w.slice(0, i) + w[i+1] + w[i] + w.slice(i+2))).filter(x => x !== w);
+  shuffle(L).forEach(e => { const q = qSwSpell(e), bad = sample(swMisspell(e.w), 3);
+    if(bad.length < 3) sample(swapped(e.w).filter(x => !bad.includes(x)), 3 - bad.length).forEach(x => bad.push(x));   // fallback: two letters switched
+    q.prompt = "Listen 🔊 — which spelling is right?";
+    q.items = optsItems(e.w, bad, b => `Not "${b}". It's ${U(e.w)}.`); out.push(q); });
+  // a few extras: syllable splits and "which word fits?"
+  const vcv = shuffle(L.filter(e => { const p = swPattern(e); return p && p.p !== "VC/CV"; })).slice(0, 2);
+  vcv.forEach(e => { const q = qSwVcv(e), w = e.w, pt = swPattern(e), have = q.items.map(i => i.label);
+    const other = [1, 2, w.length - 2, w.length - 1].filter(k => k > 0 && k < w.length).map(k => w.slice(0, k) + " · " + w.slice(k)).find(x => !have.includes(x));
+    if(other) q.items.push({label:other, target:false, why:swVcvWhy(e, pt)});
+    q.prompt = `How do you split <b>${U(w)}</b> into syllables?`; out.push(q); });
+  shuffle(L.filter(e => e.s)).slice(0, 2).forEach(e => {
+    const others = sample(L.filter(x => x !== e), 3).map(x => x.w);
+    out.push({kind:"slice", skill:"sw_spell", sw:e.w, prompt:"Which word fits the sentence?", ctx:{t:"clue", html:swClue(e)}, speak:null,
+      items:optsItems(e.w, others, w => `"${w}" doesn't fit here.`), why:e.s.replace("____", e.w.toUpperCase())}); });
+  // keep spelling questions spread out: spelling first in random order, extras slotted in
+  const spell = out.filter(q => q.prompt.startsWith("Listen")), extra = shuffle(out.filter(q => !q.prompt.startsWith("Listen")));
+  extra.forEach(q => spell.splice(1 + rnd(spell.length), 0, q));
+  return spell;
+}
+function startQuiz(kind){ QZ = {kind, qs: kind === "sw" ? buildSwQuiz() : buildSsQuiz(), i:0, right:0, missed:[]}; closeModal(); showQuizQ(); }
 function quizCtx(q){
   const c = q.ctx; if(!c) return "";
   if(c.t === "pic") return `<div style="display:flex;justify-content:center;margin:8px 0">${c.html}</div>`;
-  if(c.t === "clue") return `<p class="big-why">${c.html.replace('<span class="blank"></span>', '<span class="blank" style="min-width:90px"></span>')}</p>`;
+  if(c.t === "clue") return `<p class="big-why clue">${c.html.replace('<span class="blank"></span>', '<span class="blank" style="min-width:90px"></span>')}</p>`;
   return `<div style="text-align:center;margin:8px 0">${c.html}</div>`;
 }
 function showQuizQ(){
   const q = QZ.qs[QZ.i], opts = shuffle(q.items.map(x => x.label));
   openModal(`<div class="quiz"><div style="display:flex;justify-content:space-between;font-weight:800;color:var(--dim)"><span>📝 QUESTION ${QZ.i+1} OF ${QZ.qs.length}</span><span>✓ ${QZ.right}</span></div>
     <h2 style="font-size:26px;margin-top:8px">${q.prompt}</h2>${quizCtx(q)}
+    ${q.speak ? `<div style="text-align:center"><button class="saybtn" id="qSpk">🔊 Hear it</button></div>` : ""}
     <div class="qopts">${opts.map((o,k) => `<button class="qopt" data-k="${k}">${esc(o)}</button>`).join("")}</div>
     <p id="qFeed" class="big-why" style="min-height:24px"></p>
     <button class="play big hidden" id="qNext">${QZ.i + 1 < QZ.qs.length ? "NEXT →" : "SEE MY SCORE"}</button>
     <div class="row"><button class="ghost" id="qQuit">Quit quiz</button></div></div>`);
   const ans = q.items.find(x => x.target).label;
   $("qQuit").onclick = () => { QZ = null; closeModal(); };
+  if(q.speak){ $("qSpk").onclick = () => say(q.speak); setTimeout(() => say(q.speak), 300); }
   $("panel").querySelectorAll(".qopt").forEach(b => b.onclick = () => {
     if(QZ.answered) return; QZ.answered = true;
     const pickd = opts[+b.dataset.k], ok = pickd === ans;
     $("panel").querySelectorAll(".qopt").forEach(x => { const lab = opts[+x.dataset.k]; if(lab === ans) x.classList.add("right"); else if(x === b) x.classList.add("wrong"); x.disabled = true; });
     recordSkill(q.skill, ok);
     if(q.ss){ S.ssMiss = S.ssMiss || {}; const k = ssKey(q.ss); S.ssMiss[k] = ok ? Math.max(0, (S.ssMiss[k] || 0) - 1) : Math.min(4, (S.ssMiss[k] || 0) + 2); }
+    if(q.sw){ S.swMiss = S.swMiss || {}; S.swMiss[q.sw] = ok ? Math.max(0, (S.swMiss[q.sw] || 0) - 1) : Math.min(4, (S.swMiss[q.sw] || 0) + 2); }
     save();
     if(ok){ QZ.right++; audioInit(); SFX.done(); $("qFeed").innerHTML = `<span style="color:var(--good)">✅ Correct!</span> ${esc(q.why)}`; }
     else { audioInit(); SFX.wrong(); QZ.missed.push({q, pickd, ans}); $("qFeed").innerHTML = `<span style="color:#ffb3bd">✗ The answer is <b>${esc(ans)}</b>.</span> ${esc(q.why)}`; }
@@ -2001,18 +2028,18 @@ function showQuizQ(){
 }
 function showQuizEnd(){
   const n = QZ.qs.length, r = QZ.right, pct = Math.round(100*r/n);
-  const words = uniq(QZ.missed.map(m => m.q.ss).filter(Boolean));
+  const words = uniq(QZ.missed.map(m => m.q.ss || m.q.sw).filter(Boolean));
   openModal(`<h2>${pct >= 90 ? "TEST READY! 🌟" : pct >= 70 ? "ALMOST THERE! 💪" : "KEEP PRACTICING! 📚"}</h2>
     <div class="res-stars">${r} / ${n}</div>
     ${QZ.missed.length ? `<p style="font-weight:800;color:var(--dim)">Review these:</p>` + QZ.missed.map(m => `<div class="box" style="background:rgba(0,0,0,.25);border:2px solid var(--line);border-radius:12px;padding:8px 10px;margin:6px 0">
-        <div style="font-size:14px;color:var(--dim)">${m.q.prompt.replace(/<[^>]+>/g, "")}</div>
+        <div style="font-size:14px;color:var(--dim)">${m.q.prompt.replace(/<[^>]+>/g, "")}${m.q.prompt.startsWith("Listen") && m.q.sw ? ` (${esc(m.q.sw)})` : ""}</div>
         <div>✗ <s>${esc(m.pickd)}</s> → ✓ <b>${esc(m.ans)}</b></div></div>`).join("") : `<p class="big-why">Every answer right! 🎉</p>`}
     <button class="play big" id="qAgain">TAKE IT AGAIN</button>
     <div class="row">${words.length ? `<button class="ghost" id="qPractice">🍉 Practice missed words</button>` : ""}<button class="ghost" id="qDone">🗺️ Map</button></div>`);
-  if(r > (S.quizBest || 0)) S.quizBest = r; save();
-  $("qAgain").onclick = startSsQuiz;
+  save();
+  const kind = QZ.kind; $("qAgain").onclick = () => startQuiz(kind);
   $("qDone").onclick = () => { QZ = null; closeModal(); renderMap(); };
-  if($("qPractice")) $("qPractice").onclick = () => { QZ = null; startRound("topic", "ss"); };
+  if($("qPractice")) $("qPractice").onclick = () => { QZ = null; startRound("topic", kind); };
 }
 function showSwEditor(){
   const text = swList().map(e => `${e.syl ? e.syl.join("-") : e.w}${e.s ? " | " + e.s : ""}`).join("\n");

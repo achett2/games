@@ -192,7 +192,7 @@
    nouns/verbs) + Unit 1 (VC/CV, inflected endings, base words, vowel
    digraphs, diphthongs). Mastery per skill lives in localStorage.
    ===================================================================== */
-const BUILD = "v10";
+const BUILD = "v11";
 const $ = id => document.getElementById(id);
 const rnd = n => Math.floor(Math.random()*n);
 const pick = a => a[rnd(a.length)];
@@ -296,6 +296,20 @@ const SS_BUILTIN = {
   "canyon":{s:"The river carved a deep, narrow ____ with steep walls.", pic:"canyon"}
 };
 const ssKey = w => w.toLowerCase().trim();
+// ---------- This week's spelling (editable list; defaults = the list from class) ----------
+// syl = syllables (hyphens in the editor); s = optional clue sentence with ____
+const SW_DEFAULT = [
+  {w:"total", syl:["to","tal"], s:"Add up the numbers to find the ____."},
+  {w:"digit", syl:["dig","it"], s:"7 is a one-____ number."},
+  {w:"talent", syl:["tal","ent"], s:"Drawing is his special ____."},
+  {w:"human", syl:["hu","man"], s:"A ____ has two arms and two legs."},
+  {w:"minus", syl:["mi","nus"], s:"Ten ____ three equals seven."},
+  {w:"defend", syl:["de","fend"], s:"The goalie will ____ the net."},
+  {w:"finish", syl:["fin","ish"], s:"I will ____ my homework before dinner."},
+  {w:"equal", syl:["e","qual"], s:"Two plus two is ____ to four."},
+  {w:"salad", syl:["sal","ad"], s:"I ate a ____ with lettuce and tomatoes."},
+  {w:"famous", syl:["fa","mous"], s:"The singer is so ____ that everyone knows her."}
+];
 // Conjunctions and interjections stay in the sentence but never fly up as fruit.
 const NO_FRUIT = new Set(["and","but","or","so","because","yet","nor","boo","wow","oh","hey","ouch","yay","oops","uh","um","eek","yikes","whoa"]);
 // Same word, different job (noun vs verb depends on the sentence).
@@ -472,6 +486,10 @@ const SKILLS = {
   diph_choose:{name:"ou/ow · oi/oy", tip:"OI in the middle, OY at the end. OU in the middle, OW at the end."},
   ow_sound:{name:"Two sounds of OW", tip:"OW says long O in SNOW but OW! in COW."},
   diph_spell:{name:"Spell Week 5 words", tip:"Spell the diphthong words."},
+  sw_spell:{name:"Hear it, pick the spelling", tip:"Listen, then slice the word spelled right."},
+  sw_chop:{name:"Chop into syllables", tip:"Every syllable has one vowel sound."},
+  sw_vcv:{name:"V/CV or VC/V?", tip:"One consonant between vowels: try V/CV (long vowel) first, then VC/V (short vowel)."},
+  sw_build:{name:"Spell it letter by letter", tip:"Hear the word, then slice its letters in order."},
   ss_match:{name:"Meaning → word", tip:"Read the meaning, slice the vocab word."},
   ss_meaning:{name:"Word → meaning", tip:"See the word, slice what it means."},
   ss_blank:{name:"Vocab in a sentence", tip:"Pick the vocab word that fits the sentence."},
@@ -493,9 +511,10 @@ const TOPICS = [
   {id:"w3", unit:"U", wk:3, icon:"🪓", name:"Base Words + Endings", stages:["base_chop","end_pick","base_pick"], warm:["v_sent","n_sent","nv_tricky","infl_add"], chains:["base","why"]},
   {id:"w4", unit:"U", wk:4, icon:"👯", name:"Vowel Digraphs", stages:["team_find","team_choose","team_spell"], warm:["v_word","v_letter","vc_code"], chains:["team"]},
   {id:"ss", unit:"S", icon:"🗺️", name:"Social Studies: Map Words", stages:["ss_match","ss_meaning","ss_blank","ss_picture","ss_map"], warm:[], chains:["ssc"], open:true},
+  {id:"sw", unit:"S", icon:"✏️", name:"This Week's Spelling", stages:["sw_spell","sw_chop","sw_vcv","sw_build"], warm:[], chains:["swc"], open:true},
   {id:"w5", unit:"U", wk:5, icon:"🎢", name:"Diphthongs", stages:["diph_find","diph_sort","diph_choose","ow_sound","diph_spell"], warm:["v_word","team_find","team_choose"], chains:["diph"]}
 ];
-{ const i = TOPICS.findIndex(t => t.id === "ss"); TOPICS.push(TOPICS.splice(i, 1)[0]); }   // Social Studies goes last on the map
+["sw", "ss"].forEach(id => { const i = TOPICS.findIndex(t => t.id === id); TOPICS.push(TOPICS.splice(i, 1)[0]); });   // "My lists" go last on the map
 const TOPIC = {}; TOPICS.forEach(t => TOPIC[t.id] = t);
 const FOUNDATION_SKILLS = [...TOPIC.vc.stages, ...TOPIC.nv.stages, ...TOPIC.sp.stages];
 
@@ -955,6 +974,77 @@ function qSsMap(){
     why:"The cardinal directions are North, South, East, and West.", hint:"There are exactly 4, and they're on the compass rose."};
 }
 
+// --- This week's spelling
+function swList(){ const L = S.lists && S.lists.sw; return L && L.length >= 3 ? L : SW_DEFAULT; }
+const DIGRAPHS = ["ch","sh","th","wh","ph","ck","ng","qu"];
+// syllables: from the list, or (for typed-in words) a safe VC/CV guess; null when unsure
+function swSyl(e){
+  if(e.syl && e.syl.length > 1) return e.syl;
+  const w = e.w, c = codeOf(w);
+  for(let i=1; i < w.length-2; i++) if(c.slice(i-1, i+3) === "VCCV" && !DIGRAPHS.includes(w.slice(i, i+2))) return [w.slice(0, i+1), w.slice(i+1)];
+  return null;
+}
+// V/CV (open, long vowel), VC/V (closed, short vowel) or VC/CV at the first split
+function swPattern(e){
+  const syl = swSyl(e); if(!syl) return null;
+  const w = e.w, k = syl[0].length, l = w[k-1], r = w[k], r2 = w[k+1] || "";
+  const cons = ch => ch && !isV(ch);
+  if(isV(l) && cons(r) && (isV(r2) || (r === "q" && r2 === "u"))) return {p:"V/CV", k};
+  if(cons(l) && isV(w[k-2] || "") && isV(r)) return {p:"VC/V", k};
+  if(cons(l) && cons(r) && isV(w[k-2] || "")) return {p:"VC/CV", k};
+  return null;
+}
+function swMisspell(w){
+  const out = [], swapV = {a:"e", e:"i", i:"e", o:"u", u:"o"};
+  const words = new Set(swList().map(e => e.w));
+  for(let i=1; i<w.length; i++) if(swapV[w[i]] && w[i-1] !== "q") out.push(w.slice(0,i) + swapV[w[i]] + w.slice(i+1));         // talant, humen
+  for(let i=1; i<w.length-1; i++) if(!isV(w[i]) && !"qxwhyvj".includes(w[i]) && isV(w[i-1]) && isV(w[i+1]) && w[i] !== w[i+1]) out.push(w.slice(0,i+1) + w[i] + w.slice(i+1));   // finnish, humman
+  for(let i=1; i<w.length; i++) if(w[i] === w[i-1]) out.push(w.slice(0,i) + w.slice(i+1));                    // drop a double
+  const ends = [["ous","us"],["al","le"],["ish","ich"],["ent","ant"],["it","et"],["us","is"],["qu","kw"],["ad","id"],["end","ind"]];
+  ends.forEach(([a,b]) => { const j = w.lastIndexOf(a); if(j > 0 && (j === w.length - a.length || a === "qu")) out.push(w.slice(0,j) + b + w.slice(j+a.length)); });
+  return uniq(out).filter(x => x !== w && !words.has(x));
+}
+function swSpeak(e){ return `${e.w}. ${e.s ? e.s.replace("____", e.w) + ". " : ""}${e.w}.`; }
+function swClue(e){ return e.s ? esc(e.s).replace("____", '<span class="blank"></span>') : `<span class="formula">🔊 Listen…</span>`; }
+function swPick(){ return wpick(swList(), x => 1 + (S.swMiss && S.swMiss[x.w] || 0)); }
+function qSwSpell(e){
+  e = e || swPick(); const bad = sample(swMisspell(e.w), 2);
+  return {kind:"slice", skill:"sw_spell", prompt:"Listen 🔊, then slice the right <b>spelling</b>", sw:e.w,
+    ctx:{t:"clue", html:swClue(e)}, speak:swSpeak(e),
+    items:optsItems(e.w, bad, b => `Not "${b}". It's ${U(e.w)}${swSyl(e) ? ` — ${swSyl(e).join(" · ")}` : ""}.`),
+    why:`${U(e.w)}${swSyl(e) ? ` (${swSyl(e).join(" · ")})` : ""}.`, hint:"Say it slowly, one syllable at a time. Which spelling matches every sound?"};
+}
+function qSwChop(e){
+  const pool = swList().filter(swSyl); if(!pool.length) return qSwSpell(e);
+  e = e && swSyl(e) ? e : pick(pool); const syl = swSyl(e), pt = swPattern(e);
+  const cuts = []; let acc = 0; syl.slice(0, -1).forEach(x => { acc += x.length; cuts.push(acc); });
+  return {kind:"chop", skill:"sw_chop", prompt:`Chop <b>${U(e.w)}</b> into syllables`, word:e.w, cuts, showCode:true, sw:e.w, speak:e.w,
+    why:`${syl.map(U).join(" | ")}${pt ? ` — ${pt.p}` : ""}. Every syllable has one vowel sound.`,
+    cutWhy:"Say the word slowly and clap the beats. Each beat (syllable) has one vowel sound.", hint:"Look at the V/C code under the letters. Where does one beat end and the next begin?"};
+}
+function swVcvWhy(e, pt){
+  const syl = swSyl(e), v = syl[0].replace(/[^aeiou]/g, "").slice(-1).toUpperCase();
+  return pt.p === "V/CV" ? `${syl.map(U).join(" · ")} — V/CV: the first syllable ends with the vowel, so ${v} says its name (long ${v}).`
+                         : `${syl.map(U).join(" · ")} — VC/V: the consonant stays with the first vowel, so ${v} is short.`;
+}
+function qSwVcv(e){
+  const pool = swList().filter(x => { const p = swPattern(x); return p && p.p !== "VC/CV"; });
+  if(!pool.length) return qSwChop(e);
+  e = e && pool.includes(e) ? e : pick(pool); const pt = swPattern(e), w = e.w;
+  const alt = pt.p === "V/CV" ? pt.k + 1 : pt.k - 1, show = k => w.slice(0, k) + " · " + w.slice(k);
+  return {kind:"slice", skill:"sw_vcv", prompt:`Which split is right for <b>${U(w)}</b>?`, sw:w, speak:w,
+    ctx:{t:"text", html:"Try <b>V/CV</b> first (long vowel). If it doesn't sound right, try <b>VC/V</b> (short vowel)."},
+    items:optsItems(show(pt.k), [show(alt)], () => `Say both out loud! ${swVcvWhy(e, pt)}`),
+    why:swVcvWhy(e, pt), hint:"Read each split out loud. Which one sounds like the real word?"};
+}
+const LETTER_TWIN = {a:"e", e:"i", i:"e", o:"u", u:"o", c:"k", k:"c", s:"z", z:"s", d:"t", t:"d", m:"n", n:"m", b:"d", p:"b", f:"v", v:"f", g:"j", j:"g", l:"r", r:"l", q:"k", h:"w", w:"h", x:"s", y:"i"};
+function qSwBuild(e){
+  e = e || swPick();
+  return {kind:"slice", skill:"sw_build", prompt:"Spell it! Slice the letters <b>in order</b>", sw:e.w, build:e.w, perWave:2,
+    ctx:{t:"build"}, speak:swSpeak(e), items:[{label:"?", target:true}],
+    why:`${U(e.w)}${swSyl(e) ? ` (${swSyl(e).join(" · ")})` : ""} — spelled ${[...U(e.w)].join("-")}.`, hint:"Say the word slowly. What sound comes next?"};
+}
+
 /* ---------- skill → generator ---------- */
 const GEN = {
   v_letter:qVLetter, c_letter:qCLetter, v_word:() => qVWord(), c_word:() => qCWord(), vc_code:() => qVCCode(), vc_pattern:() => qVCPattern(),
@@ -966,6 +1056,7 @@ const GEN = {
   team_find:() => qTeamFind(null, 4), team_choose:() => qTeamChoose(null, 4), team_spell:() => qSpell(null, 4),
   diph_find:() => qTeamFind(null, 5), diph_choose:() => qTeamChoose(null, 5), ow_sound:qOwSound, diph_spell:() => qSpell(null, 5),
   diph_sort:qSort, diph_say:() => qSay(),
+  sw_spell:() => qSwSpell(), sw_chop:() => qSwChop(), sw_vcv:() => qSwVcv(), sw_build:() => qSwBuild(),
   ss_match:() => qSsMatch(), ss_meaning:() => qSsMeaning(), ss_blank:() => qSsBlank(), ss_picture:() => qSsPicture(), ss_map:qSsMap,
   sp_subject:() => qSpSubject(), sp_predicate:() => qSpPredicate(), sp_chop:() => qSpChop(), sp_complete:qSpComplete
 };
@@ -992,6 +1083,10 @@ const CHAINS = {
     st.push(Object.assign(qSent(e.tagged, "v"), {why:`${U(v)} is the verb — the predicate starts right there!`}));
     st.push(ok("sp_chop") ? qSpChop(e) : qSpPredicate(e));
     return {label:"SENTENCE", steps:st}; },
+  // one spelling word: hear & pick → chop → V/CV or VC/V → spell it
+  swc(){ const e = swPick(), st = [qSwSpell(e)]; if(swSyl(e)) st.push(qSwChop(e));
+    const pt = swPattern(e); if(pt && pt.p !== "VC/CV") st.push(qSwVcv(e)); st.push(qSwBuild(e));
+    return {label:U(e.w), steps:st}; },
   // one vocab word three ways: meaning → word, word → meaning, then use it
   ssc(){ const e = pick(ssList()); return {label:U(e.w), steps:[qSsMatch(e), qSsMeaning(e), SS_BUILTIN[ssKey(e.w)] && Math.random() < 0.5 ? qSsPicture(e) : qSsBlank(e)]}; },
   // RABBIT: vowels → V/C → split
@@ -1193,6 +1288,14 @@ function launchOne(it){
   if(!it.col) it.col = pick(FRUIT);
 }
 function refillLaunchQueue(){
+  if(G.q && G.q.build){
+    // two fruit per wave: the next letter and a look-alike letter
+    const w = G.q.build, L = w[G.buildPos]; let dec = LETTER_TWIN[L] || pick([..."aeioustr"].filter(x => x !== L));
+    if(dec === L) dec = "e";
+    const mk = (lab, tgt) => ({label:U(lab), target:tgt, sliced:false, build:true,
+      why: tgt ? "" : `Listen again: "${w}". After ${G.buildPos ? `"${U(w.slice(0, G.buildPos))}"` : "the start"} comes ${U(L)}, not ${U(lab)}.`});
+    const a = mk(L, true), b = mk(dec, false); G.items.push(a, b); G.launchQ = shuffle([a, b]); return;
+  }
   const left = G.items.filter(it => !it.sliced && it.state !== "fly");
   // letters of a word come up in word order (R, A, B, B, I, T); everything else is shuffled
   G.launchQ = left.some(it => it.idx != null) ? left.sort((a,b) => a.idx - b.idx) : shuffle(left);
@@ -1208,7 +1311,7 @@ function beginQuestion(entry){
     if(TOPIC.vc.stages.includes(q.skill)){ q.perWave = 2; q.speed = 0.75; }   // Vowels & Consonants: 2 at a time, faster
     if(q.kind === "sort"){ q.speed = 1.5;
       if(!S.tips.sort){ S.tips.sort = 1; save(); toast("🧺 Drag each word into its bin — or tap the right bin while the word is in the air.", "info", 4500); } }
-    G.items = q.items.map(o => Object.assign({}, o, {sliced:false}));
+    G.items = q.build ? [] : q.items.map(o => Object.assign({}, o, {sliced:false})); G.buildPos = 0;
     G.launchQ = []; G.lane = rnd(3); G.launchGap = 0.35; refillLaunchQueue();   // first fruit after the HUD settles
   } else {
     const units = q.units || [...q.word];
@@ -1274,7 +1377,12 @@ function sliceItem(it, a, b){
     floatText(it.x, it.y - it.hh - 6, it.note ? `${it.note}` : `+${pts}`, "#b6ff6b");
     if(R.combo >= 3 && R.combo % 3 === 0) floatText(W/2, H*0.72, `COMBO ×${mult}!`, "#ffd24a", 34);
     markTile(it, true);
-    if(G.items.filter(x => x.target && !x.sliced).length === 0) completeQuestion();
+    if(G.q.build){
+      G.buildPos++; renderBuild();
+      G.items.forEach(x => { if(!x.sliced && x.state === "fly") x.leaving = true; });   // the look-alike flies away
+      if(G.buildPos >= G.q.build.length) completeQuestion();
+    }
+    else if(G.items.filter(x => x.target && !x.sliced).length === 0) completeQuestion();
   } else {
     G.mistakes++; R.combo = 0; G.shake = 0.35; SFX.wrong();
     it.wrongHit = true;
@@ -1432,6 +1540,7 @@ function completeQuestion(){
   G.phase = "done"; G.doneAt = performance.now();
   const q = G.q, first = G.mistakes === 0;
   if(!q.selfCheck) recordSkill(q.skill, first);
+  if(q.sw){ S.swMiss = S.swMiss || {}; S.swMiss[q.sw] = first ? Math.max(0, (S.swMiss[q.sw] || 0) - 1) : Math.min(4, (S.swMiss[q.sw] || 0) + 2); }
   if(q.ss){ S.ssMiss = S.ssMiss || {}; const k = ssKey(q.ss); S.ssMiss[k] = first ? Math.max(0, (S.ssMiss[k] || 0) - 1) : Math.min(4, (S.ssMiss[k] || 0) + 2); }
   if(q.kind === "sort" && S.settings.say !== false){
     const pickW = G.sayPick && sortBins(G.sayPick).length === 1 ? G.sayPick : pick(q.items.filter(i => i.bins.length === 1)).label;
@@ -1541,7 +1650,7 @@ function update(dt){
   if(G.phase === "play" && G.q && (G.q.kind === "slice" || G.q.kind === "sort") && flying < (G.q.perWave || 1)){
     G.launchGap -= dt;
     if(G.launchGap <= 0){
-      if(!G.launchQ.length) refillLaunchQueue();
+      if(!G.launchQ.length && !(G.q.build && flying > 0)) refillLaunchQueue();   // spelling: a new pair only once the last pair is gone
       const next = G.launchQ.shift();
       if(next){ launchOne(next); G.launchGap = 0.15; }
     }
@@ -1694,6 +1803,9 @@ function renderCtx(q){
     box.innerHTML = `<div class="tiles">${[...c.w].map((l,i) => `<div class="tile ${c.pre === "v" && isV(l) ? "v" : ""}" data-i="${i}"><div class="L">${esc(l)}</div><div class="C ${isV(l) ? "V" : "Cc"}">${isV(l) ? "V" : "C"}</div></div>`).join("")}</div>`;
   } else if(c.t === "sent"){
     box.innerHTML = `<div class="sent">${c.toks.map((t,i) => `<span class="w ${i === c.hl ? "hl" : ""}" data-i="${i}" ${t.tag ? `data-t="${t.tag === "a" ? "ADJ" : TAG_NAME[t.tag]}"` : ""}>${esc(t.w)}${esc(t.p)}</span>`).join("")}</div>`;
+  } else if(c.t === "build"){
+    box.innerHTML = `<div class="tiles" id="buildTiles"></div><div style="margin-top:6px"><button class="speak" id="spk">🔊 Hear it again</button></div>`;
+    $("spk").onclick = () => say(q.speak); renderBuild();
   } else if(c.t === "pic"){
     box.innerHTML = `<div style="display:flex; justify-content:center; margin-top:4px">${c.html}</div>`;
   } else if(c.t === "text"){
@@ -1702,13 +1814,17 @@ function renderCtx(q){
     box.innerHTML = `<div class="clue">${c.html}${q.speak && window.speechSynthesis ? ` <button class="speak" id="spk">🔊</button>` : ""}</div>`;
     const b = $("spk"); if(b) b.onclick = () => say(q.speak);
   }
-  if(q.speak && c.t !== "clue" && window.speechSynthesis){ const b = document.createElement("button"); b.className = "speak"; b.textContent = "🔊"; b.onclick = () => say(q.speak); box.appendChild(b); }
+  if(q.speak && c.t !== "clue" && c.t !== "build" && window.speechSynthesis){ const b = document.createElement("button"); b.className = "speak"; b.textContent = "🔊"; b.onclick = () => say(q.speak); box.appendChild(b); }
 }
 function markTile(it){
   const c = G.q.ctx; if(!c || it.idx == null) return;
   const el = $("ctx").querySelector(`[data-i="${it.idx}"]`); if(!el) return;
   if(c.t === "word") el.classList.add(c.mark === "team" ? "team" : c.mark === "c" ? "c" : "v");
   if(c.t === "sent") el.classList.add({n:"hitn", v:"hitv", a:"hita"}[c.mark]);
+}
+function renderBuild(){
+  const el = $("buildTiles"); if(!el || !G.q || !G.q.build) return;
+  el.innerHTML = [...G.q.build].map((ch, i) => `<div class="tile ${i < G.buildPos ? "v" : ""}"><div class="L">${i < G.buildPos ? esc(U(ch)) : "_"}</div></div>`).join("");
 }
 function revealCode(){ $("ctx").querySelectorAll(".tile .C").forEach(e => e.classList.add("on")); }
 function setNote(html, cls){ const n = $("note"); n.innerHTML = html; n.className = html ? `show ${cls}` : ""; if(G.chop) requestAnimationFrame(layoutChop); }
@@ -1740,15 +1856,15 @@ function renderMap(){
   let h = `<div class="sect">FOUNDATIONS</div>`;
   TOPICS.forEach((t,i) => {
     if(t.unit === "U" && TOPICS[i-1].unit === "F") h += `<div class="arrow">▼</div><div class="sect">UNIT 1</div>`;
-    else if(t.unit === "S" && TOPICS[i-1].unit !== "S") h += `<div class="sect">SOCIAL STUDIES</div>`;
+    else if(t.unit === "S" && TOPICS[i-1].unit !== "S") h += `<div class="sect">MY LISTS</div>`;
     else if(i > 0 && t.unit !== "S") h += `<div class="arrow">▼</div>`;
     const p = tp(t.id), un = unlocked(i), m = topicMastery(t);
     h += `<div class="card ${un ? "" : "locked"}">
       <div class="ic">${t.icon}</div>
-      <div class="mid"><div class="wk">${t.unit === "F" ? "FOUNDATION "+(i+1) : t.unit === "S" ? `VOCAB · ${ssList().length} WORDS` : "WEEK "+t.wk}</div><div class="nm">${t.name}</div>
+      <div class="mid"><div class="wk">${t.unit === "F" ? "FOUNDATION "+(i+1) : t.id === "sw" ? `SPELLING · ${swList().length} WORDS` : t.unit === "S" ? `VOCAB · ${ssList().length} WORDS` : "WEEK "+t.wk}</div><div class="nm">${t.name}</div>
         <div class="bar"><i style="width:${m}%"></i></div>
         <div class="meta"><span class="stars">${starStr(p.stars)}</span> · skill ${Math.min(stageOf(t)+1, t.stages.length)}/${t.stages.length} · ${m}% mastery</div></div>
-      <div class="btns">${un ? `<button class="play" data-play="${t.id}">PLAY</button><button class="ghost" data-learn="${t.id}">📖 Learn</button>${t.id === "ss" ? `<button class="ghost" id="ssEdit">✏️ Edit words</button>` : ""}` : `<div style="font-size:26px">🔒</div>`}</div>
+      <div class="btns">${un ? `<button class="play" data-play="${t.id}">PLAY</button><button class="ghost" data-learn="${t.id}">📖 Learn</button>${t.id === "ss" ? `<button class="ghost" id="ssEdit">✏️ Edit words</button>` : t.id === "sw" ? `<button class="ghost" id="swEdit">✏️ Edit words</button>` : ""}` : `<div style="font-size:26px">🔒</div>`}</div>
     </div>`;
   });
   $("map").innerHTML = h;
@@ -1759,6 +1875,7 @@ function renderMap(){
   $("map").querySelectorAll("[data-play]").forEach(b => b.onclick = () => { const id = b.dataset.play; if(!tp(id).plays && !S.tips["learn_"+id]) showLesson(id); else startRound("topic", id); });
   $("map").querySelectorAll("[data-learn]").forEach(b => b.onclick = () => showLesson(b.dataset.learn));
   if($("ssEdit")) $("ssEdit").onclick = showSsEditor;
+  if($("swEdit")) $("swEdit").onclick = showSwEditor;
   const mb = $("mixBtn"); if(mb) mb.onclick = () => startRound("mix", null);
   $("hStars").textContent = TOPICS.reduce((a,t) => a + tp(t.id).stars, 0);
   $("hBest").textContent = S.best || 0;
@@ -1780,6 +1897,12 @@ const LESSONS = {
       <p>Test: does it fit in "a ___ dog"? <i>a silly dog</i> ✓</p></div>
       <div class="box"><p><b>Same word, different job:</b> the sentence decides.</p>
       <p>We <span class="vb"><b>RUN</b></span> fast. → verb (action)<br>Dad went for a <span class="nn"><b>RUN</b></span>. → noun (a thing)</p></div>`,
+  sw:() => `<div class="box"><div class="ex">${swList().map(e => swSyl(e) ? swSyl(e).join("·") : e.w).join(" &nbsp; ")}</div></div>` +
+      (swList().some(e => { const p = swPattern(e); return p && p.p !== "VC/CV"; }) ? `<div class="box">
+      <p><b>One consonant between two vowels (V C V)?</b></p>
+      <p>1️⃣ Try <b>V/CV</b> first: the first syllable ends with its vowel, so the vowel is <b>long</b> — hu·man, mi·nus, fa·mous.</p>
+      <p>2️⃣ If that doesn't sound like a real word, try <b>VC/V</b>: the consonant stays with the vowel, so it's <b>short</b> — fin·ish, sal·ad, dig·it.</p></div>` : "") +
+      `<div class="box"><p>🔊 Every question reads the word to you. At the end you'll <b>spell it letter by letter</b>, just like the test!</p></div>`,
   ss:() => ssList().map(e => { const b = SS_BUILTIN[ssKey(e.w)];
       return `<div class="box" style="display:flex; gap:10px; align-items:center">${b ? `<div style="flex:0 0 90px">${SS_PIC[b.pic].replace(/width="\d+" height="\d+"/, 'width="90" height="70"')}</div>` : ""}
         <div><div class="k">${esc(e.w)}</div><p style="margin:2px 0">${esc(e.d)}</p></div></div>`; }).join("") +
@@ -1822,6 +1945,30 @@ const LESSONS = {
       <div class="box"><p>🧺 <b>Sort it:</b> drag each word into its bin — OW, OU, OI or OY. Some words have two, like c<b>ow</b>b<b>oy</b>!</p>
       <p>🎤 <b>Say it:</b> OI and OY say <b>"oy"</b> (boy). OU and OW say <b>"ow"</b> (cow).</p></div>`
 };
+function showSwEditor(){
+  const text = swList().map(e => `${e.syl ? e.syl.join("-") : e.w}${e.s ? " | " + e.s : ""}`).join("\n");
+  openModal(`<h2>✏️ SPELLING WORDS</h2>
+    <p style="font-size:15px">One word per line. Optional: show syllables with dashes (<b>hu-man</b>) and add <b>| a sentence with ____</b>. You can also paste a list like <i>total, digit, talent</i>.</p>
+    <textarea id="swText" style="width:100%; height:240px; font:700 16px 'Baloo 2',sans-serif; border-radius:12px; padding:10px; touch-action:auto; -webkit-user-select:text; user-select:text;">${esc(text)}</textarea>
+    <p id="swErr" style="color:#ffb3bd; font-weight:800; min-height:20px"></p>
+    <button class="play big" id="swSave">SAVE WORDS</button>
+    <div class="row"><button class="ghost" id="swReset">Reset to the class list</button><button class="ghost" id="swCancel">Cancel</button></div>`);
+  $("swCancel").onclick = closeModal;
+  $("swReset").onclick = () => { S.lists = S.lists || {}; delete S.lists.sw; S.swMiss = {}; save(); closeModal(); renderMap(); };
+  $("swSave").onclick = () => {
+    let lines = $("swText").value.split("\n").map(l => l.trim()).filter(Boolean);
+    if(lines.length === 1 && lines[0].includes(",")) lines = lines[0].split(",").map(x => x.trim()).filter(Boolean);
+    const rows = lines.map(l => {
+      const [wp, sn] = l.split("|").map(x => x.trim()); const raw = (wp || "").toLowerCase();
+      if(!/^[a-z]+(-[a-z]+)*$/.test(raw)) return null;
+      const syl = raw.includes("-") ? raw.split("-") : null, w = raw.replace(/-/g, "");
+      let s2 = sn || ""; if(s2 && !s2.includes("____")) s2 = s2.replace(new RegExp("\\b" + w + "\\b", "i"), "____");
+      return {w, ...(syl ? {syl} : {}), ...(s2.includes("____") ? {s:s2} : {})}; });
+    if(rows.some(r => !r)){ $("swErr").textContent = "Use letters only (dashes for syllables are OK): hu-man | A ____ has two legs."; return; }
+    if(rows.length < 3){ $("swErr").textContent = "Please add at least 3 words."; return; }
+    S.lists = S.lists || {}; S.lists.sw = rows; S.swMiss = {}; save(); closeModal(); renderMap();
+  };
+}
 function showSsEditor(){
   const text = ssList().map(e => `${e.w}: ${e.d}${e.s ? " | " + e.s : ""}`).join("\n");
   openModal(`<h2>✏️ VOCAB WORDS</h2>
@@ -1926,9 +2073,10 @@ window.__selfTest = function(n){
     if(q.kind === "slice"){
       const t = q.items.filter(i => i.target);
       if(!t.length) errs.push(`${where}: no target`);
-      if(q.items.length < 2 || q.items.length > 9) errs.push(`${where}: ${q.items.length} items`);
+      if(!q.build && (q.items.length < 2 || q.items.length > 9)) errs.push(`${where}: ${q.items.length} items`);
       if(!q.ctx || q.ctx.t !== "word" && q.ctx.t !== "sent"){ const labs = q.items.map(i => i.label); if(uniq(labs).length !== labs.length) errs.push(`${where}: dup labels ${labs}`); }
       if(q.items.some(i => NO_FRUIT.has(String(i.label).toLowerCase()))) errs.push(`${where}: conjunction/interjection fruit`);
+      if(q.build && !/^[a-z]+$/.test(q.build)) errs.push(`${where}: bad build word ${q.build}`);
       if(q.items.some(i => !i.target && !i.why)) errs.push(`${where}: missing why for ${q.items.filter(i => !i.target && !i.why).map(i => i.label)}`);
     } else if(q.kind === "sort"){
       if(q.items.some(i => !i.bins.length || i.bins.some(b => !SORT_BINS.includes(b)))) errs.push(`${where}: unsortable word`);
@@ -1943,6 +2091,8 @@ window.__selfTest = function(n){
   for(const id in GEN) for(let i=0;i<n;i++){ try{ chk(GEN[id](), id); }catch(e){ errs.push(`${id}: ${e.message}`); } }
   const ok = () => true;
   for(const id in CHAINS) for(let i=0;i<n;i++){ try{ CHAINS[id](ok).steps.forEach((q,k) => chk(q, `chain ${id}#${k}`)); }catch(e){ errs.push(`chain ${id}: ${e.message}`); } }
+  SW_DEFAULT.forEach(e => { if(swMisspell(e.w).length < 2) errs.push(`too few misspellings for ${e.w}`); if(e.syl.join("") !== e.w) errs.push(`syllables don't match ${e.w}`);
+    if(!swPattern(e)) errs.push(`no syllable pattern for ${e.w}`); });
   SS_DEFAULT.forEach(e => { if(!SS_BUILTIN[ssKey(e.w)]) errs.push(`no built-in extras for ${e.w}`); });
   SP_SENTS.forEach(e => { const tk = parseSent(e.tagged); if(!tk.some(t => t.tag === "n") || !tk.some(t => t.tag === "v")) errs.push(`SP sentence needs a noun + verb: ${e.src}`);
     const vi = tk.findIndex(t => t.tag === "v"); if(vi !== e.cut) errs.push(`SP sentence: predicate should start at the verb: ${e.src}`); });

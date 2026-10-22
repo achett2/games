@@ -196,7 +196,7 @@
    nouns/verbs) + Unit 1 (VC/CV, inflected endings, base words, vowel
    digraphs, diphthongs). Mastery per skill lives in localStorage.
    ===================================================================== */
-const BUILD = "v14";
+const BUILD = "v15";
 const $ = id => document.getElementById(id);
 const rnd = n => Math.floor(Math.random()*n);
 const pick = a => a[rnd(a.length)];
@@ -1158,6 +1158,7 @@ function startRound(mode, topicId){
   R = {mode, topicId, total: mode === "mix" ? 14 : 12, done:0, first:0, queue:[], log:{}, score:0, combo:0, best:0,
        warmLeft: mode === "topic" ? (t.unit === "U" ? 2 : 0) : 0, newStage:null, chainsDone:0, pending:null};
   R.stageAtStart = mode === "topic" ? tp(topicId).stage : 0;
+  if(mode === "drill"){ R.total = 1e9; R.warmLeft = 0; drillState(); save(); }
   hideScreens(); $("hud").classList.remove("hidden");
   nextQuestion();
 }
@@ -1198,8 +1199,8 @@ function pushChain(id, ok){
 }
 function nextQuestion(){
   if(!R.queue.length){
-    if(R.done >= R.total) return endRound();
-    refill();
+    if(R.mode === "drill"){ if(drillDone()) return endRound(); R.queue.push({q:drillNext(), tag:"drill"}); }   // only spelling words
+    else { if(R.done >= R.total) return endRound(); refill(); }
   }
   const it = R.queue.shift();
   R.cur = it;
@@ -1311,7 +1312,7 @@ function refillLaunchQueue(){
   G.launchQ = left.some(it => it.idx != null) ? left.sort((a,b) => a.idx - b.idx) : shuffle(left);
 }
 function beginQuestion(entry){
-  const q = entry.q; G.q = q; G.mistakes = 0; G.wrongs = []; G.phase = "play"; G.items = []; G.chop = null; G.hinted = false;
+  const q = entry.q; G.q = q; G.mistakes = 0; G.wrongs = []; G.buildPos = 0; G.phase = "play"; G.items = []; G.chop = null; G.hinted = false;   // buildPos reset before the HUD draws the letter boxes
   renderHud(entry);
   if(q.speak) setTimeout(() => say(q.speak), 350);
   G.grab = null; G.hoverBin = -1; G.binFlash = null; G.sayTries = 0; G.sayPick = null;
@@ -1550,6 +1551,9 @@ function completeQuestion(){
   G.phase = "done"; G.doneAt = performance.now();
   const q = G.q, first = G.mistakes === 0;
   if(!q.selfCheck) recordSkill(q.skill, first);
+  if(q.drill && first){ const d = drillState(); d.counts[q.sw] = (d.counts[q.sw] || 0) + 1;
+    floatText(W/2, H*0.6, d.counts[q.sw] >= DRILL_N ? "⭐ WORD MASTERED! ⭐" : `⭐ ${d.counts[q.sw]} / ${DRILL_N}`, "#ffd24a", 32); }
+  if(q.drill && !first) setTimeout(() => toast("That one doesn't count yet — it needs to be spelled with no wrong letters. It'll come back!", "info", 3500), 200);
   if(q.sw){ S.swMiss = S.swMiss || {}; S.swMiss[q.sw] = first ? Math.max(0, (S.swMiss[q.sw] || 0) - 1) : Math.min(4, (S.swMiss[q.sw] || 0) + 2); }
   if(q.ss){ S.ssMiss = S.ssMiss || {}; const k = ssKey(q.ss); S.ssMiss[k] = first ? Math.max(0, (S.ssMiss[k] || 0) - 1) : Math.min(4, (S.ssMiss[k] || 0) + 2); }
   if(q.kind === "sort" && S.settings.say !== false){
@@ -1798,6 +1802,7 @@ function renderHud(entry){
   const q = entry.q;
   const tag = entry.tag === "warm" ? `<span class="warm">🔥 WARM-UP REVIEW · ${skillTopicName(q.skill)}</span>`
             : entry.tag === "chain" ? `<span class="chain">🔗 ${esc(entry.chain)} · STEP ${entry.step} OF ${entry.of}</span>`
+            : entry.tag === "drill" ? `<span class="chain">🎯 SPELL ×${DRILL_N} · THIS WORD ${"★".repeat(Math.min(DRILL_N, drillState().counts[q.sw]))}${"☆".repeat(Math.max(0, DRILL_N - drillState().counts[q.sw]))}</span>`
             : entry.tag === "say" ? `<span class="chain">🎤 SAY IT · ${SKILLS[q.skill].name}</span>`
             : entry.tag === "mix" ? `🎲 MIXED REVIEW · ${SKILLS[q.skill].name}` : SKILLS[q.skill].name.toUpperCase();
   $("tag").innerHTML = tag;
@@ -1839,7 +1844,8 @@ function renderBuild(){
 function revealCode(){ $("ctx").querySelectorAll(".tile .C").forEach(e => e.classList.add("on")); }
 function setNote(html, cls){ const n = $("note"); n.innerHTML = html; n.className = html ? `show ${cls}` : ""; if(G.chop) requestAnimationFrame(layoutChop); }
 function renderProg(){
-  if(!R) return; const total = Math.max(R.total, R.done + R.queue.length + (G.phase === "play" ? 1 : 0));
+  if(!R) return;
+  if(R.mode === "drill"){ $("prog").innerHTML = `<span style="font-weight:800;color:var(--gold);font-size:17px">⭐ ${drillGot()} / ${swList().length*DRILL_N}</span>`; return; } const total = Math.max(R.total, R.done + R.queue.length + (G.phase === "play" ? 1 : 0));
   let h = ""; for(let i=0; i<total; i++){ const m = R.marks && R.marks[i]; h += `<i class="${m === true ? "ok" : m === false ? "miss" : i === R.done ? "cur" : ""}"></i>`; }
   $("prog").innerHTML = h;
 }
@@ -1874,7 +1880,7 @@ function renderMap(){
       <div class="mid"><div class="wk">${t.unit === "F" ? "FOUNDATION "+(i+1) : t.id === "sw" ? `SPELLING · ${swList().length} WORDS` : t.unit === "S" ? `VOCAB · ${ssList().length} WORDS` : "WEEK "+t.wk}</div><div class="nm">${t.name}</div>
         <div class="bar"><i style="width:${m}%"></i></div>
         <div class="meta"><span class="stars">${starStr(p.stars)}</span> · skill ${Math.min(stageOf(t)+1, t.stages.length)}/${t.stages.length} · ${m}% mastery</div></div>
-      <div class="btns">${un ? `<button class="play" data-play="${t.id}">PLAY</button><button class="ghost" data-learn="${t.id}">📖 Learn</button>${t.id === "ss" ? `<button class="ghost" id="ssQuiz">📝 Quiz</button><button class="ghost" id="ssEdit">✏️ Edit words</button>` : t.id === "sw" ? `<button class="ghost" id="swQuiz">📝 Quiz</button><button class="ghost" id="swEdit">✏️ Edit words</button>` : ""}` : `<div style="font-size:26px">🔒</div>`}</div>
+      <div class="btns">${un ? `<button class="play" data-play="${t.id}">PLAY</button><button class="ghost" data-learn="${t.id}">📖 Learn</button>${t.id === "ss" ? `<button class="ghost" id="ssQuiz">📝 Quiz</button><button class="ghost" id="ssEdit">✏️ Edit words</button>` : t.id === "sw" ? `<button class="ghost" id="swDrill">🎯 Spell ×5${S.drill && drillGot() > 0 ? ` (${drillGot()}/${swList().length*DRILL_N})` : ""}</button><button class="ghost" id="swQuiz">📝 Quiz</button><button class="ghost" id="swEdit">✏️ Edit words</button>` : ""}` : `<div style="font-size:26px">🔒</div>`}</div>
     </div>`;
   });
   $("map").innerHTML = h;
@@ -1887,6 +1893,7 @@ function renderMap(){
   if($("ssEdit")) $("ssEdit").onclick = showSsEditor;
   if($("ssQuiz")) $("ssQuiz").onclick = () => startQuiz("ss");
   if($("swQuiz")) $("swQuiz").onclick = () => startQuiz("sw");
+  if($("swDrill")) $("swDrill").onclick = () => startRound("drill", "sw");
   if($("swEdit")) $("swEdit").onclick = showSwEditor;
   const mb = $("mixBtn"); if(mb) mb.onclick = () => startRound("mix", null);
   $("hStars").textContent = TOPICS.reduce((a,t) => a + tp(t.id).stars, 0);
@@ -1960,6 +1967,23 @@ const LESSONS = {
       <div class="box"><p>🧺 <b>Sort it:</b> drag each word into its bin — OW, OU, OI or OY. Some words have two, like c<b>ow</b>b<b>oy</b>!</p>
       <p>🎤 <b>Say it:</b> OI and OY say <b>"oy"</b> (boy). OU and OW say <b>"ow"</b> (cow).</p></div>`
 };
+/* ---------- Spell ×5 drill: every word spelled right 5 times, random order ---------- */
+const DRILL_N = 5;
+function drillState(){
+  const key = swList().map(e => e.w).join(",");
+  if(!S.drill || S.drill.key !== key) S.drill = {key, counts:{}};       // a new word list starts fresh
+  swList().forEach(e => { if(S.drill.counts[e.w] == null) S.drill.counts[e.w] = 0; });
+  return S.drill;
+}
+function drillDone(){ const d = drillState(); return swList().every(e => d.counts[e.w] >= DRILL_N); }
+function drillGot(){ const d = drillState(); return swList().reduce((a, e) => a + Math.min(DRILL_N, d.counts[e.w]), 0); }
+function drillNext(){
+  const d = drillState(); let pool = swList().filter(e => d.counts[e.w] < DRILL_N);
+  if(pool.length > 1 && R.lastDrill) pool = pool.filter(e => e.w !== R.lastDrill);    // never the same word twice in a row
+  const e = wpick(pool, x => 1 + (DRILL_N - d.counts[x.w]) + (S.swMiss && S.swMiss[x.w] || 0));  // random, a bit more often for words with more to go
+  R.lastDrill = e.w; return Object.assign(qSwBuild(e), {drill:true});
+}
+
 /* ---------- Social Studies multiple-choice quiz (test practice, no fruit) ---------- */
 let QZ = null;
 function buildSsQuiz(){
@@ -2136,6 +2160,14 @@ function endRound(){
   const next = idx >= 0 && idx < TOPICS.length - 1 ? TOPICS[idx+1] : null;
   const mode = R.mode, topicId = R.topicId;
   $("hud").classList.add("hidden"); G.items = []; G.chop = null; G.phase = "idle";
+  if(mode === "drill"){
+    S.drill = null; save();
+    openModal(`<h2>🎉 ALL WORDS SPELLED ${DRILL_N}×!</h2><div class="res-stars">⭐ ${swList().length*DRILL_N} / ${swList().length*DRILL_N}</div>
+      <p class="big-why">${swList().map(e => e.w).join(" · ")}</p>
+      <p style="text-align:center;color:var(--dim);font-weight:800">${R.first}/${R.done} spelled perfectly this session · 🍉 ${R.score} points</p>
+      <button class="play big" id="againBtn">DO IT AGAIN</button><div class="row"><button class="ghost" id="mapBtn">🗺️ Map</button></div>`);
+    $("againBtn").onclick = () => startRound("drill", "sw"); $("mapBtn").onclick = goHome; R = null; return;
+  }
   openModal(`<h2>${stars === 3 ? "SLICE MASTER!" : stars === 2 ? "GREAT SLICING!" : "NICE WORK!"}</h2>
     <div class="res-stars">${starStr(stars)}</div>
     <p style="text-align:center;font-weight:800;font-size:20px">🍉 ${R.score} points${newBest ? " · NEW BEST!" : ""}<br><span style="color:var(--dim);font-size:16px">${R.first}/${R.done} right on the first try${R.chainsDone ? ` · ${R.chainsDone} chain${R.chainsDone > 1 ? "s" : ""} completed` : ""}</span></p>

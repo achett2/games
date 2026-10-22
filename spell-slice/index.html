@@ -196,7 +196,7 @@
    nouns/verbs) + Unit 1 (VC/CV, inflected endings, base words, vowel
    digraphs, diphthongs). Mastery per skill lives in localStorage.
    ===================================================================== */
-const BUILD = "v13";
+const BUILD = "v14";
 const $ = id => document.getElementById(id);
 const rnd = n => Math.floor(Math.random()*n);
 const pick = a => a[rnd(a.length)];
@@ -302,17 +302,17 @@ const SS_BUILTIN = {
 const ssKey = w => w.toLowerCase().trim();
 // ---------- This week's spelling (editable list; defaults = the list from class) ----------
 // syl = syllables (hyphens in the editor); s = optional clue sentence with ____
-const SW_DEFAULT = [
-  {w:"total", syl:["to","tal"], s:"Add up the numbers to find the ____."},
-  {w:"digit", syl:["dig","it"], s:"7 is a one-____ number."},
-  {w:"talent", syl:["tal","ent"], s:"Drawing is his special ____."},
-  {w:"human", syl:["hu","man"], s:"A ____ has two arms and two legs."},
-  {w:"minus", syl:["mi","nus"], s:"Ten ____ three equals seven."},
-  {w:"defend", syl:["de","fend"], s:"The goalie will ____ the net."},
-  {w:"finish", syl:["fin","ish"], s:"I will ____ my homework before dinner."},
-  {w:"equal", syl:["e","qual"], s:"Two plus two is ____ to four."},
-  {w:"salad", syl:["sal","ad"], s:"I ate a ____ with lettuce and tomatoes."},
-  {w:"famous", syl:["fa","mous"], s:"The singer is so ____ that everyone knows her."}
+const SW_DEFAULT = [   // Unit 2 Week 2 ("Weird Friends") — r-controlled vowels
+  {w:"morning", syl:["morn","ing"], s:"I eat breakfast every ____."},
+  {w:"format", syl:["for","mat"], s:"Our teacher showed us the ____ for writing a letter."},
+  {w:"explore", syl:["ex","plore"], s:"We will ____ the cave with flashlights."},
+  {w:"cardboard", syl:["card","board"], s:"We built a fort out of a big ____ box."},
+  {w:"soared", s:"The eagle ____ high above the trees."},
+  {w:"darkness", syl:["dark","ness"], s:"An owl can see in the ____."},
+  {w:"alarm", syl:["a","larm"], s:"My ____ clock rang at seven."},
+  {w:"adore", syl:["a","dore"], s:"I ____ my fluffy puppy."},
+  {w:"target", syl:["tar","get"], s:"She threw the ball and hit the ____."},
+  {w:"absorb", syl:["ab","sorb"], s:"A sponge can ____ lots of water."}
 ];
 // Conjunctions and interjections stay in the sentence but never fly up as fruit.
 const NO_FRUIT = new Set(["and","but","or","so","because","yet","nor","boo","wow","oh","hey","ouch","yay","oops","uh","um","eek","yikes","whoa"]);
@@ -1001,9 +1001,15 @@ function swPattern(e){
 function swMisspell(w){
   const out = [], swapV = {a:"e", e:"i", i:"e", o:"u", u:"o"};
   const words = new Set(swList().map(e => e.w));
-  for(let i=1; i<w.length; i++) if(swapV[w[i]] && w[i-1] !== "q") out.push(w.slice(0,i) + swapV[w[i]] + w.slice(i+1));         // talant, humen
-  for(let i=1; i<w.length-1; i++) if(!isV(w[i]) && !"qxwhyvj".includes(w[i]) && isV(w[i-1]) && isV(w[i+1]) && w[i] !== w[i+1]) out.push(w.slice(0,i+1) + w[i] + w.slice(i+1));   // finnish, humman
+  for(let i=1; i<w.length; i++) if(swapV[w[i]] && w[i-1] !== "q" && !(i === w.length-1 && w[i] === "e") && !isV(w[i-1] || "") && !isV(w[i+1] || "")) out.push(w.slice(0,i) + swapV[w[i]] + w.slice(i+1));         // talant, humen
+  for(let i=1; i<w.length-1; i++) if(!isV(w[i]) && !"qxwhyvj".includes(w[i]) && isV(w[i-1]) && isV(w[i+1]) && w[i] !== w[i+1] && !(i+1 === w.length-1 && w[i+1] === "e")) out.push(w.slice(0,i+1) + w[i] + w.slice(i+1));   // finnish, humman
   for(let i=1; i<w.length; i++) if(w[i] === w[i-1]) out.push(w.slice(0,i) + w.slice(i+1));                    // drop a double
+  const rCtl = [["oar","or"],["oar","ore"],["ore","or"],["ore","oar"],["or","oar"],["or","ore"],["ar","or"],["ar","er"],["ness","nes"],["ed","d"],["orb","orbe"],["arm","arme"]];
+  rCtl.forEach(([a,b]) => { let j = w.indexOf(a);
+    while(j >= 0){ const x = w.slice(0,j) + b + w.slice(j+a.length);
+      const atEnd = j + a.length === w.length || (w.slice(j + a.length) === "d" && a === "ore");
+      if(!((a === "or" || a === "ar") && isV(w.slice(j-1, j) || "x")) && !(a === "or" && w[j+2] === "e") && !(b === "ore" && !atEnd) && !(a === "ore" && !atEnd)) out.push(x);
+      j = w.indexOf(a, j+1); } });
   const ends = [["ous","us"],["al","le"],["ish","ich"],["ent","ant"],["it","et"],["us","is"],["qu","kw"],["ad","id"],["end","ind"]];
   ends.forEach(([a,b]) => { const j = w.lastIndexOf(a); if(j > 0 && (j === w.length - a.length || a === "qu")) out.push(w.slice(0,j) + b + w.slice(j+a.length)); });
   return uniq(out).filter(x => x !== w && !words.has(x));
@@ -1908,6 +1914,9 @@ const LESSONS = {
       <p><b>One consonant between two vowels (V C V)?</b></p>
       <p>1️⃣ Try <b>V/CV</b> first: the first syllable ends with its vowel, so the vowel is <b>long</b> — hu·man, mi·nus, fa·mous.</p>
       <p>2️⃣ If that doesn't sound like a real word, try <b>VC/V</b>: the consonant stays with the vowel, so it's <b>short</b> — fin·ish, sal·ad, dig·it.</p></div>` : "") +
+      (swList().some(e => /[aeiou]r/.test(e.w)) ? `<div class="box"><p><b>👑 Bossy R!</b> When R comes right after a vowel, it changes the vowel's sound:</p>
+      <p><b>AR</b> — t<b>ar</b>get, d<b>ar</b>kness, al<b>ar</b>m · <b>OR</b> — m<b>or</b>ning, f<b>or</b>mat, abs<b>or</b>b<br><b>ORE</b> — expl<b>ore</b>, ad<b>ore</b> · <b>OAR</b> — s<b>oar</b>ed, cardb<b>oar</b>d</p>
+      <p>OR, ORE and OAR can all sound the same, so remember which one each word uses!</p></div>` : "") +
       `<div class="box"><p>🔊 Every question reads the word to you. At the end you'll <b>spell it letter by letter</b>, just like the test!</p></div>`,
   ss:() => ssList().map(e => { const b = SS_BUILTIN[ssKey(e.w)];
       return `<div class="box" style="display:flex; gap:10px; align-items:center">${b ? `<div style="flex:0 0 90px">${SS_PIC[b.pic].replace(/width="\d+" height="\d+"/, 'width="90" height="70"')}</div>` : ""}
@@ -2187,8 +2196,7 @@ window.__selfTest = function(n){
   for(const id in GEN) for(let i=0;i<n;i++){ try{ chk(GEN[id](), id); }catch(e){ errs.push(`${id}: ${e.message}`); } }
   const ok = () => true;
   for(const id in CHAINS) for(let i=0;i<n;i++){ try{ CHAINS[id](ok).steps.forEach((q,k) => chk(q, `chain ${id}#${k}`)); }catch(e){ errs.push(`chain ${id}: ${e.message}`); } }
-  SW_DEFAULT.forEach(e => { if(swMisspell(e.w).length < 2) errs.push(`too few misspellings for ${e.w}`); if(e.syl.join("") !== e.w) errs.push(`syllables don't match ${e.w}`);
-    if(!swPattern(e)) errs.push(`no syllable pattern for ${e.w}`); });
+  SW_DEFAULT.forEach(e => { if(swMisspell(e.w).length < 3) errs.push(`too few misspellings for ${e.w}`); if(e.syl && e.syl.join("") !== e.w) errs.push(`syllables don't match ${e.w}`); });
   SS_DEFAULT.forEach(e => { if(!SS_BUILTIN[ssKey(e.w)]) errs.push(`no built-in extras for ${e.w}`); });
   SP_SENTS.forEach(e => { const tk = parseSent(e.tagged); if(!tk.some(t => t.tag === "n") || !tk.some(t => t.tag === "v")) errs.push(`SP sentence needs a noun + verb: ${e.src}`);
     const vi = tk.findIndex(t => t.tag === "v"); if(vi !== e.cut) errs.push(`SP sentence: predicate should start at the verb: ${e.src}`); });

@@ -154,6 +154,11 @@
   .qopt{border:3px solid var(--line); background:var(--card); color:var(--ink); border-radius:14px; padding:12px 14px; font-weight:800; font-size:19px; text-align:left; line-height:1.25;}
   .qopt.right{border-color:var(--good); background:rgba(75,227,122,.25);} .qopt.wrong{border-color:var(--bad); background:rgba(255,90,110,.25);}
   .qopt:disabled{opacity:1; color:var(--ink);}
+  .wanswer{display:flex; justify-content:center; gap:4px; font-family:"Baloo 2"; font-weight:800; font-size:clamp(40px,11vw,60px); color:#fff; letter-spacing:.04em; text-align:center;}
+  .wanswer span{border-bottom:3px solid var(--gold); padding:0 3px;}
+  .wrev{display:flex; align-items:center; gap:10px; background:rgba(0,0,0,.25); border:2px solid var(--line); border-radius:12px; padding:6px; margin:6px 0;}
+  .wrev img{width:62%; border-radius:8px; background:#fffdf6;} .wrev.ok{border-color:var(--good);} .wrev.no{border-color:var(--bad);}
+  .wrev div{flex:1; font-size:18px; text-align:center;}
   .setlbl{font-weight:800; color:var(--dim); letter-spacing:.06em; font-size:14px; margin:14px 0 6px;}
 </style>
 </head>
@@ -196,7 +201,7 @@
    nouns/verbs) + Unit 1 (VC/CV, inflected endings, base words, vowel
    digraphs, diphthongs). Mastery per skill lives in localStorage.
    ===================================================================== */
-const BUILD = "v15";
+const BUILD = "v16";
 const $ = id => document.getElementById(id);
 const rnd = n => Math.floor(Math.random()*n);
 const pick = a => a[rnd(a.length)];
@@ -1880,7 +1885,7 @@ function renderMap(){
       <div class="mid"><div class="wk">${t.unit === "F" ? "FOUNDATION "+(i+1) : t.id === "sw" ? `SPELLING · ${swList().length} WORDS` : t.unit === "S" ? `VOCAB · ${ssList().length} WORDS` : "WEEK "+t.wk}</div><div class="nm">${t.name}</div>
         <div class="bar"><i style="width:${m}%"></i></div>
         <div class="meta"><span class="stars">${starStr(p.stars)}</span> · skill ${Math.min(stageOf(t)+1, t.stages.length)}/${t.stages.length} · ${m}% mastery</div></div>
-      <div class="btns">${un ? `<button class="play" data-play="${t.id}">PLAY</button><button class="ghost" data-learn="${t.id}">📖 Learn</button>${t.id === "ss" ? `<button class="ghost" id="ssQuiz">📝 Quiz</button><button class="ghost" id="ssEdit">✏️ Edit words</button>` : t.id === "sw" ? `<button class="ghost" id="swDrill">🎯 Spell ×5${S.drill && drillGot() > 0 ? ` (${drillGot()}/${swList().length*DRILL_N})` : ""}</button><button class="ghost" id="swQuiz">📝 Quiz</button><button class="ghost" id="swEdit">✏️ Edit words</button>` : ""}` : `<div style="font-size:26px">🔒</div>`}</div>
+      <div class="btns">${un ? `<button class="play" data-play="${t.id}">PLAY</button><button class="ghost" data-learn="${t.id}">📖 Learn</button>${t.id === "ss" ? `<button class="ghost" id="ssQuiz">📝 Quiz</button><button class="ghost" id="ssEdit">✏️ Edit words</button>` : t.id === "sw" ? `<button class="ghost" id="swDrill">🎯 Spell ×5${S.drill && drillGot() > 0 ? ` (${drillGot()}/${swList().length*DRILL_N})` : ""}</button><button class="ghost" id="swQuiz">📝 Quiz</button><button class="ghost" id="swWrite">✍️ Write it</button><button class="ghost" id="swEdit">✏️ Edit words</button>` : ""}` : `<div style="font-size:26px">🔒</div>`}</div>
     </div>`;
   });
   $("map").innerHTML = h;
@@ -1894,6 +1899,7 @@ function renderMap(){
   if($("ssQuiz")) $("ssQuiz").onclick = () => startQuiz("ss");
   if($("swQuiz")) $("swQuiz").onclick = () => startQuiz("sw");
   if($("swDrill")) $("swDrill").onclick = () => startRound("drill", "sw");
+  if($("swWrite")) $("swWrite").onclick = startWriteQuiz;
   if($("swEdit")) $("swEdit").onclick = showSwEditor;
   const mb = $("mixBtn"); if(mb) mb.onclick = () => startRound("mix", null);
   $("hStars").textContent = TOPICS.reduce((a,t) => a + tp(t.id).stars, 0);
@@ -1982,6 +1988,83 @@ function drillNext(){
   if(pool.length > 1 && R.lastDrill) pool = pool.filter(e => e.w !== R.lastDrill);    // never the same word twice in a row
   const e = wpick(pool, x => 1 + (DRILL_N - d.counts[x.w]) + (S.swMiss && S.swMiss[x.w] || 0));  // random, a bit more often for words with more to go
   R.lastDrill = e.w; return Object.assign(qSwBuild(e), {drill:true});
+}
+
+/* ---------- ✍️ Write it: finger-writing spelling test (self-check + grown-up review) ---------- */
+let WQ = null;
+function makePad(cv){
+  const g = cv.getContext("2d"), dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = cv.clientWidth, h = cv.clientHeight; cv.width = w*dpr; cv.height = h*dpr; g.scale(dpr, dpr);
+  const pad = {strokes:[], cur:null, locked:false};
+  function lines(){
+    g.fillStyle = "#fffdf6"; g.fillRect(0, 0, w, h);
+    const top = h*0.2, mid = h*0.48, base = h*0.76;
+    g.strokeStyle = "#7aa8ff"; g.lineWidth = 2; g.setLineDash([]);
+    [top, base].forEach(y => { g.beginPath(); g.moveTo(8, y); g.lineTo(w-8, y); g.stroke(); });
+    g.strokeStyle = "#9ab8ff"; g.setLineDash([10, 8]); g.beginPath(); g.moveTo(8, mid); g.lineTo(w-8, mid); g.stroke(); g.setLineDash([]);
+  }
+  function redraw(){
+    lines(); g.strokeStyle = "#1b1440"; g.lineWidth = Math.max(5, h*0.035); g.lineCap = "round"; g.lineJoin = "round";
+    pad.strokes.forEach(st => { g.beginPath(); st.forEach((p, i) => i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)); if(st.length === 1) g.lineTo(st[0].x + 0.1, st[0].y); g.stroke(); });
+  }
+  const at = e => { const r = cv.getBoundingClientRect(); return {x:e.clientX - r.left, y:e.clientY - r.top}; };
+  cv.addEventListener("pointerdown", e => { if(pad.locked) return; e.preventDefault(); try{ cv.setPointerCapture(e.pointerId); }catch(_){} pad.cur = [at(e)]; pad.strokes.push(pad.cur); redraw(); });
+  cv.addEventListener("pointermove", e => { if(!pad.cur) return; e.preventDefault(); pad.cur.push(at(e)); redraw(); });
+  const end = () => { pad.cur = null; }; cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
+  pad.undo = () => { pad.strokes.pop(); redraw(); };
+  pad.clear = () => { pad.strokes = []; redraw(); };
+  pad.empty = () => !pad.strokes.length;
+  pad.image = () => cv.toDataURL("image/png");
+  redraw(); return pad;
+}
+function startWriteQuiz(){ WQ = {words:shuffle(swList()), i:0, right:0, log:[]}; closeModal(); showWriteQ(); }
+function showWriteQ(copyMode){
+  const e = WQ.words[WQ.i], n = WQ.words.length;
+  openModal(`<div class="wquiz"><div style="display:flex;justify-content:space-between;font-weight:800;color:var(--dim)"><span>✍️ WORD ${WQ.i+1} OF ${n}</span><span>✓ ${WQ.right}</span></div>
+    <h2 style="font-size:26px;margin-top:8px">${copyMode ? "Copy it once, carefully ✍️" : "Listen, then write the word"}</h2>
+    ${copyMode ? `<div class="wanswer">${esc(e.w)}</div>` : (e.s ? `<p class="big-why clue">${swClue(e)}</p>` : "")}
+    <div style="text-align:center"><button class="saybtn" id="wSpk">🔊 Hear it</button></div>
+    <canvas id="wPad" style="width:100%; height:200px; border-radius:14px; border:3px solid #6a50c0; touch-action:none; display:block; margin-top:10px; background:#fffdf6"></canvas>
+    <div class="row" style="margin-top:8px"><button class="ghost" id="wUndo">↩ Undo</button><button class="ghost" id="wClear">🗑 Start over</button></div>
+    <div id="wCheckArea"></div>
+    <button class="play big" id="wCheck">${copyMode ? "DONE →" : "✓ CHECK MY SPELLING"}</button>
+    <div class="row"><button class="ghost" id="wQuit">Quit</button></div></div>`);
+  const pad = makePad($("wPad"));
+  const speak = () => say(swSpeak(e));
+  $("wSpk").onclick = speak; if(!copyMode) setTimeout(speak, 300);
+  $("wUndo").onclick = () => pad.undo(); $("wClear").onclick = () => pad.clear();
+  $("wQuit").onclick = () => { WQ = null; closeModal(); };
+  $("wCheck").onclick = () => {
+    if(pad.empty()){ toast("Write the word first! ✍️", "info", 2000); return; }
+    if(copyMode){ nextWrite(); return; }
+    pad.locked = true; const img = pad.image();
+    $("wCheck").classList.add("hidden"); $("wUndo").disabled = $("wClear").disabled = true;
+    $("wCheckArea").innerHTML = `<p style="text-align:center;font-weight:800;margin:10px 0 4px">The right spelling is:</p>
+      <div class="wanswer">${[...e.w].map(ch => `<span>${esc(ch)}</span>`).join("")}</div>
+      <p style="text-align:center;font-weight:800">Check letter by letter. Did you spell it <u>exactly</u> right?</p>
+      <div class="row"><button class="play" id="wYes">✅ Yes, I got it!</button><button class="ghost" id="wNo" style="font-size:18px;padding:8px 14px">❌ No, I missed it</button></div>`;
+    say(e.w);
+    const mark = ok => {
+      WQ.log.push({w:e.w, img, ok}); recordSkill("sw_build", ok);
+      S.swMiss = S.swMiss || {}; S.swMiss[e.w] = ok ? Math.max(0, (S.swMiss[e.w] || 0) - 1) : Math.min(4, (S.swMiss[e.w] || 0) + 2); save();
+      if(ok){ WQ.right++; audioInit(); SFX.done(); nextWrite(); }
+      else { audioInit(); SFX.wrong(); showWriteQ(true); }            // missed: copy it once correctly, then move on
+    };
+    $("wYes").onclick = () => mark(true); $("wNo").onclick = () => mark(false);
+  };
+}
+function nextWrite(){ WQ.i++; if(WQ.i < WQ.words.length) showWriteQ(); else showWriteEnd(); }
+function showWriteEnd(){
+  const n = WQ.words.length, r = WQ.right;
+  openModal(`<h2>${r === n ? "PERFECT SPELLER! 🌟" : r >= n*0.7 ? "GREAT WRITING! ✍️" : "KEEP PRACTICING! 📚"}</h2>
+    <div class="res-stars">${r} / ${n}</div>
+    <p style="text-align:center;color:var(--dim);font-weight:800">👀 Grown-ups: here's what was written for each word.</p>
+    ${WQ.log.map(x => `<div class="wrev ${x.ok ? "ok" : "no"}"><img src="${x.img}" alt="handwriting for ${esc(x.w)}"><div><b>${x.ok ? "✅" : "❌"} ${esc(x.w)}</b></div></div>`).join("")}
+    <button class="play big" id="wAgain">WRITE THEM AGAIN</button>
+    <div class="row">${WQ.log.some(x => !x.ok) ? `<button class="ghost" id="wPractice">🎯 Practice missed words</button>` : ""}<button class="ghost" id="wDone">🗺️ Map</button></div>`);
+  $("wAgain").onclick = startWriteQuiz;
+  $("wDone").onclick = () => { WQ = null; closeModal(); renderMap(); };
+  if($("wPractice")) $("wPractice").onclick = () => { WQ = null; startRound("topic", "sw"); };
 }
 
 /* ---------- Social Studies multiple-choice quiz (test practice, no fruit) ---------- */
